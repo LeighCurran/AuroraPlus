@@ -1,14 +1,21 @@
 # Aurora+ Library
-https://dillinger.io/
+
 ## Usage
 
 AuroraPlus.py requires requests.py to run.
 
-Install the dependencies and devDependencies and start the server.
-
+## Examples
 ```sh
-Example:
+
 AuroraPlus = api("username", "password", "timespan")
+
+AuroraPlus = api("user.name@outlook.com", "password", "day")
+
+if (not AuroraPlus.Error):
+    print(AuroraPlus.AmountOwed)
+else:
+    print(AuroraPlus.Error)
+
 ```
 Supported Timespans
 ```sh
