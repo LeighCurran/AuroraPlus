@@ -8,7 +8,6 @@ setup(
   author = 'Leigh Curran',
   author_email = 'AuroraPlusPy@outlook.com',
   url = 'https://github.com/leighcurran/AuroraPlus',
-  download_url = 'https://github.com/leighcurran/AuroraPlus/archive/v_01.tar.gz',
   keywords = ['Aurora+', 'AuroraPlus', 'Aurora', 'Tasmania', 'API'],
   install_requires=[
           'requests',

@@ -1,9 +1,5 @@
 import requests
-#from requests.structures import CaseInsensitiveDict
-#import sys
-#from datetime import datetime
-
-from requests.api import head
+#rom requests.api import head
 
 PACKAGE_VERSION = '0.0.1'
 
@@ -17,14 +13,13 @@ class api:
 
         self.url = 'https://api.auroraenergy.com.au/api'
         
-        #Create a session and perform all requests in same session
+        #Create a session and perform all requests in the same session
         session = requests.Session()
         session.headers.update({'Accept': 'application/json', 'User-Agent': 'AuroraPlus.py', 'Accept-Encoding' : 'gzip, deflate, br', 'Connection' : 'keep-alive' })
         self.session = session
      
         #Get access token
         token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password})
-        #print(token.status_code)
 
         if (token.status_code == requests.codes.ok):
 
