@@ -1,4 +1,6 @@
 import requests
+from requests.adapters import HTTPAdapter
+from requests.exceptions import Timeout
 #rom requests.api import head
 
 PACKAGE_VERSION = '0.0.1'
@@ -11,15 +13,23 @@ class api:
 
     def __init__(self, username, password, timespan):
 
+        self.Error = ''
         self.url = 'https://api.auroraenergy.com.au/api'
+
+        #api_adapter = HTTPAdapter(max_retries=3)
         
         #Create a session and perform all requests in the same session
         session = requests.Session()
+        #session.mount('https://api.auroraenergy.com.au/api', api_adapter)
         session.headers.update({'Accept': 'application/json', 'User-Agent': 'AuroraPlus.py', 'Accept-Encoding' : 'gzip, deflate, br', 'Connection' : 'keep-alive' })
         self.session = session
      
         #Get access token
-        token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password})
+        try:
+            token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password}, timeout=(2, 5))
+        except Timeout:
+            self.Error = 'The request timed out'
+            #Fix up this
 
         if (token.status_code == requests.codes.ok):
 
@@ -34,22 +44,22 @@ class api:
             #Loop through premises to get active premise
             premises = currentjson['Premises']
             for premise in premises:
-                print(premise['IsActive'])
-                if (premise['IsActive']):
-                    print("found active")
+                if (premise['ServiceAgreementStatus'] == 'Active'):
+                    
                     #Get all service data here
-                    serviceAgreementID = currentjson['Premises'][0]['ServiceAgreementID']
-
-                    self.AmountOwed = currentjson['Premises'][0]['AmountOwed']
-                    self.EstimatedBalance = currentjson['Premises'][0]['EstimatedBalance']
-                    self.AverageDailyUsaged = currentjson['Premises'][0]['AverageDailyUsage']
-                    self.UsageDaysRemaining = currentjson['Premises'][0]['UsageDaysRemaining']
-                    self.AmountOwed = currentjson['Premises'][0]['AmountOwed']
+                    serviceAgreementID = premise['ServiceAgreementID']
+                    self.Active = premise['ServiceAgreementStatus'] 
+                    self.AmountOwed = premise['AmountOwed']
+                    self.EstimatedBalance = premise['EstimatedBalance']
+                    self.AverageDailyUsaged = premise['AverageDailyUsage']
+                    self.UsageDaysRemaining = premise['UsageDaysRemaining']
+                    self.AmountOwed = premise['AmountOwed']
 
                     #Request data
                     self.data = self.session.get(self.url + '/usage/' + timespan +'?serviceAgreementID=' + serviceAgreementID + '&customerId=' + customerId + '&index=-1', headers={'Authorization': self.token})
-                else:
-                    self.Error = 'No active premise found'
+                
+            if (self.Active != 'Active'):
+                self.Error = 'No active premise found'
         else:
             self.Error = token.reason
 
