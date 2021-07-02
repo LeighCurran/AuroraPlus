@@ -16,11 +16,11 @@ class api:
         self.Error = ''
         self.url = 'https://api.auroraenergy.com.au/api'
 
-        #api_adapter = HTTPAdapter(max_retries=3)
+        api_adapter = HTTPAdapter(max_retries=2)
         
         #Create a session and perform all requests in the same session
         session = requests.Session()
-        #session.mount('https://api.auroraenergy.com.au/api', api_adapter)
+        session.mount('https://api.auroraenergy.com.au/api', api_adapter)
         session.headers.update({'Accept': 'application/json', 'User-Agent': 'AuroraPlus.py', 'Accept-Encoding' : 'gzip, deflate, br', 'Connection' : 'keep-alive' })
         self.session = session
      
@@ -45,7 +45,7 @@ class api:
             premises = currentjson['Premises']
             for premise in premises:
                 if (premise['ServiceAgreementStatus'] == 'Active'):
-                    
+
                     #Get all service data here
                     serviceAgreementID = premise['ServiceAgreementID']
                     self.Active = premise['ServiceAgreementStatus'] 
