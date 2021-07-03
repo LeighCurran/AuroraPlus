@@ -1,10 +1,7 @@
 import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import Timeout
-from requests.sessions import Request
-#rom requests.api import head
-
-PACKAGE_VERSION = '0.0.1'
+#from requests.sessions import Request
 
 class api:
 
@@ -95,7 +92,13 @@ class api:
                         self.EstimatedBalance = premise['EstimatedBalance']
                         self.AverageDailyUsaged = premise['AverageDailyUsage']
                         self.UsageDaysRemaining = premise['UsageDaysRemaining']
-                        self.AmountOwed = premise['AmountOwed']
+                        self.HasSolar = premise['HasSolar']
+                        self.Address = premise['Address']
+                        self.ActualBalance = premise['ActualBalance']
+                        self.UnbilledAmount = premise['UnbilledAmount']
+                        self.BillTotalAmount = premise['BillTotalAmount']
+                        self.NumberOfUnpaidBills = premise['NumberOfUnpaidBills']
+                        self.BillOverDueAmount = premise['BillOverDueAmount']
                 if (found != 'true'):
                     self.Error = 'ServiceAgreementID not found'
             else:
@@ -105,12 +108,17 @@ class api:
 
 AuroraPlus = api("leigh.curran@outlook.com", "MuCEiD49%3Z%&y")
 AuroraPlus.getcurrent()
-AuroraPlus.getweek()
 AuroraPlus.getday()
+AuroraPlus.getweek()
+AuroraPlus.getmonth()
+AuroraPlus.getquarter()
+AuroraPlus.getyear()
 
 if (not AuroraPlus.Error):
     print(AuroraPlus.AmountOwed)
     print(AuroraPlus.day)
     print(AuroraPlus.week)
+    print(AuroraPlus.month)
+    print(AuroraPlus.year)
 else:
     print(AuroraPlus.Error)
