@@ -15,7 +15,6 @@ TO get information about your current account use the following:
 AuroraPlus.getcurrent()
 
 getcurrent gets the following data:
-
     EstimatedBalance - This is shown in the Aurora+ app as 'Balance'
     UsageDaysRemaining - This is shown in the Aurora+ app as 'Days Prepaid'
     AverageDailyUsaged
@@ -32,11 +31,11 @@ An example getting specific data with getcurrent:
     AuroraPlus.AmountOwed
 
 To get usage data use the following, thios returns all available data in json format for each timespan:
-AuroraPlus.getday()
-AuroraPlus.getweek()
-AuroraPlus.getmonth()
-AuroraPlus.getquarter()
-AuroraPlus.getyear()
+    AuroraPlus.getday()
+    AuroraPlus.getweek()
+    AuroraPlus.getmonth()
+    AuroraPlus.getquarter()
+    AuroraPlus.getyear()
 
 Full example:
 
