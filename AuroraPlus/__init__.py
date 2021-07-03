@@ -26,96 +26,91 @@ class api:
         session.mount(self.url, api_adapter)
         session.headers.update({'Accept': 'application/json', 'User-Agent': 'AuroraPlus.py', 'Accept-Encoding' : 'gzip, deflate, br', 'Connection' : 'keep-alive' })
         self.session = session
-        print('session')
 
-    def request(self, username, password, timespan):
-
-            #Get access token
-            try:
-                token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password}, timeout=(2, 5))
-        
-                if (token.status_code == requests.codes.ok):
-
-                    tokenjson = token.json()
-                    self.token = tokenjson['accessToken']
-
-                    #Request current customer data
-                    current = self.session.get(self.url+'/customers/current',headers={'Authorization': self.token})
-                    currentjson = current.json()[0]
-                    customerId = currentjson['CustomerID']
-
-                    #Loop through premises to get active premise
-                    premises = currentjson['Premises']
-                    for premise in premises:
-                        if (premise['ServiceAgreementStatus'] == 'Active'):
-                            #Get all service data here
-                            serviceAgreementID = premise['ServiceAgreementID']
-
-                            #Request data
-                            self.data = self.session.get(self.url + '/usage/' + timespan +'?serviceAgreementID=' + serviceAgreementID + '&customerId=' + customerId + '&index=-1', headers={'Authorization': self.token}).json()
-                    if (self.Active != 'Active'):
-                        self.Error = 'No active premise found'
-                else:
-                    self.Error = token.reason
-            except Timeout:
-                self.Error = 'The request timed out'
-
-    def day(self):
-        self.request(self.username, self.password, "day")
-
-    def week(self):
-       self.request(self.username, self.password, "week")
-
-    def month(self):
-       self.request(self.username, self.password, "month")
-
-    def quarter(self):
-       self.request(self.username, self.password, "quarter")
-
-    def year(self):
-       self.request(self.username, self.password, "year")
-
-    def current(self):
-     
         #Get access token
         try:
-            token = self.session.post(self.url+'/identity/login',data={'username': self.username, 'password': self.password}, timeout=(2, 5))
-      
-            if (token.status_code == requests.codes.ok):
-
+            token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password}, timeout=(2, 5))
+    
+            if (token.status_code == 200):
                 tokenjson = token.json()
                 self.token = tokenjson['accessToken']
 
-                #Request current customer data
-                current = self.session.get(self.url+'/customers/current',headers={'Authorization': self.token})
-                currentjson = current.json()[0]
+                #Get CustomerID and ServiceAgreementID
+                current = self.session.get(self.url+'/customers/current',headers={'Authorization': self.token}).json()[0]
+                self.customerId = current['CustomerID']
 
                 #Loop through premises to get active premise
-                premises = currentjson['Premises']
+                premises = current['Premises']
                 for premise in premises:
                     if (premise['ServiceAgreementStatus'] == 'Active'):
-
-                        #Get all service data here
                         self.Active = premise['ServiceAgreementStatus'] 
+                        self.serviceAgreementID = premise['ServiceAgreementID']
+                if (self.Active != 'Active'):
+                    self.Error = 'No active premise found'
+            else:
+                self.Error = 'Token request failed: ' + token.reason
+        except Timeout:
+            self.Error = 'Token request timed out'
+
+    def request(self, timespan):
+        try:
+            request = self.session.get(self.url + '/usage/' + timespan +'?serviceAgreementID=' + self.serviceAgreementID + '&customerId=' + self.customerId + '&index=-1', headers={'Authorization': self.token})
+            if (request.status_code == 200):
+                return request.json()
+            else:
+                self.Error = 'Data request failed: ' + request.reason  
+        except Timeout:
+            self.Error = 'Data request timed out'
+
+    def getday(self):
+        self.day = self.request("day")
+
+    def getweek(self):
+       self.week = self.request("week")
+
+    def getmonth(self):
+       self.month = self.request("month")
+
+    def getquarter(self):
+       self.quarter = self.request("quarter")
+
+    def getyear(self):
+       self.year = self.request("year")
+
+    def getcurrent(self):
+        try:
+            #Request current customer data
+            current = self.session.get(self.url+'/customers/current',headers={'Authorization': self.token})
+
+            if (current.status_code == 200):
+                currentjson = current.json()[0]
+
+                #Loop through premises to match serviceAgreementID already found in token request
+                premises = currentjson['Premises']
+                found = ''
+                for premise in premises:
+                    if (premise['ServiceAgreementID'] == self.serviceAgreementID):
+                        found = 'true'
                         self.AmountOwed = premise['AmountOwed']
                         self.EstimatedBalance = premise['EstimatedBalance']
                         self.AverageDailyUsaged = premise['AverageDailyUsage']
                         self.UsageDaysRemaining = premise['UsageDaysRemaining']
                         self.AmountOwed = premise['AmountOwed']
-
-                if (self.Active != 'Active'):
-                    self.Error = 'No active premise found'
+                if (found != 'true'):
+                    self.Error = 'ServiceAgreementID not found'
             else:
-                self.Error = token.reason
+                self.Error = 'Current request failed: ' + current.reason
         except Timeout:
-            self.Error = 'The request timed out'
+            self.Error = 'Current request timed out'
 
 AuroraPlus = api("leigh.curran@outlook.com", "MuCEiD49%3Z%&y")
-AuroraPlus.current()
-AuroraPlus.week()
+AuroraPlus.getcurrent()
+AuroraPlus.getweek()
+AuroraPlus.getday()
 
 if (not AuroraPlus.Error):
     print(AuroraPlus.AmountOwed)
-    print(AuroraPlus.data)
+    print(AuroraPlus.day)
+    print(AuroraPlus.week)
 else:
     print(AuroraPlus.Error)
