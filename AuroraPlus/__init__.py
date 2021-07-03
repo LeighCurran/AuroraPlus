@@ -1,7 +1,6 @@
 import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import Timeout
-#from requests.sessions import Request
 
 class api:
 
@@ -105,20 +104,3 @@ class api:
                 self.Error = 'Current request failed: ' + current.reason
         except Timeout:
             self.Error = 'Current request timed out'
-
-AuroraPlus = api("leigh.curran@outlook.com", "MuCEiD49%3Z%&y")
-AuroraPlus.getcurrent()
-AuroraPlus.getday()
-AuroraPlus.getweek()
-AuroraPlus.getmonth()
-AuroraPlus.getquarter()
-AuroraPlus.getyear()
-
-if (not AuroraPlus.Error):
-    print(AuroraPlus.AmountOwed)
-    print(AuroraPlus.day)
-    print(AuroraPlus.week)
-    print(AuroraPlus.month)
-    print(AuroraPlus.year)
-else:
-    print(AuroraPlus.Error)
