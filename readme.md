@@ -11,7 +11,7 @@ AuroraPlus.py requires requests.py to run.
 Connect to Aurora+ API:
 AuroraPlus = api("user.name@outlook.com", "password")
 
-Get information about your current account:
+TO get information about your current account use the following:
 AuroraPlus.getcurrent()
 
 getcurrent gets the following data:
@@ -21,26 +21,21 @@ getcurrent gets the following data:
     AverageDailyUsaged
     HasSolar
     Address
-    AmountOwed -
+    AmountOwed
     ActualBalance
     UnbilledAmount
     BillTotalAmount
     NumberOfUnpaidBills
     BillOverDueAmount
 
-Get day usage infromation:
+An example getting specific data with getcurrent:
+    AuroraPlus.AmountOwed
+
+To get usage data use the following, thios returns all available data in json format for each timespan:
 AuroraPlus.getday()
-
-Get week usage infromation:
 AuroraPlus.getweek()
-
-Get month usage infromation:
 AuroraPlus.getmonth()
-
-Get quarter usage infromation:
 AuroraPlus.getquarter()
-
-Get year usage infromation:
 AuroraPlus.getyear()
 
 Full example:
