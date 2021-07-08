@@ -1,20 +1,23 @@
-# Aurora+ Library
-
 AuroraPlus.py is a package to pull data from https://api.auroraenergy.com.au/api. To use the Aurora+ API you need a valid account with Aurora.
 
-## Requirements
-
-AuroraPlus.py requires requests.py to run.
+## Install
+- Install Python 3.9 (for all users)
+- Pip install requests (Requests is a requirement of AuroraPlus)
+- pip install auroraplus
 
 ## Usage
-```sh
+
 Connect to Aurora+ API:
-AuroraPlus = api("user.name@outlook.com", "password")
 
-TO get information about your current account use the following:
-AuroraPlus.getcurrent()
+    import auroraplus
+    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
 
-getcurrent gets the following data:
+To get information about your current account use the following:
+
+    AuroraPlus.getcurrent()
+
+getcurrent() gets the following data:
+
     EstimatedBalance - This is shown in the Aurora+ app as 'Balance'
     UsageDaysRemaining - This is shown in the Aurora+ app as 'Days Prepaid'
     AverageDailyUsaged
@@ -28,9 +31,17 @@ getcurrent gets the following data:
     BillOverDueAmount
 
 An example getting specific data with getcurrent:
-    AuroraPlus.AmountOwed
 
-To get usage data use the following, thios returns all available data in json format for each timespan:
+    import auroraplus
+    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
+    if (not AuroraPlus.Error):
+        AuroraPlus.getcurrent()
+        print(AuroraPlus.AmountOwed)
+    else:
+        print(AuroraPlus.Error)
+
+To get usage data use the following, this returns all available data in json format for each timespan:
+
     AuroraPlus.getday()
     AuroraPlus.getweek()
     AuroraPlus.getmonth()
@@ -39,21 +50,21 @@ To get usage data use the following, thios returns all available data in json fo
 
 Full example:
 
-AuroraPlus = api("user.name@outlook.com", "password")
-if (not AuroraPlus.Error):
-    print(AuroraPlus.AmountOwed)
-    print(AuroraPlus.day)
-    print(AuroraPlus.week)
-    print(AuroraPlus.month)
-    print(AuroraPlus.year)
-else:
-    print(AuroraPlus.Error)
-```
-## ChangeLog
-```sh
-0.0.2: Initial relase
-```
-
-## License
-
-MIT
+    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
+    if (not AuroraPlus.Error):
+        AuroraPlus.getcurrent()
+        print(AuroraPlus.AmountOwed)
+        
+        AuroraPlus.getday()
+        print(AuroraPlus.day)
+        
+        AuroraPlus.getweek()
+        print(AuroraPlus.week)
+        
+        AuroraPlus.getmonth()
+        print(AuroraPlus.month
+        
+        AuroraPlus.getyear()
+        print(AuroraPlus.year)
+    else:
+        print(AuroraPlus.Error)

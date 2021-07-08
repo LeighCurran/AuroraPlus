@@ -1,29 +1,23 @@
+"""Abstraction of the Aurora+ API"""
 import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import Timeout
 
 class api:
 
-    """
-    Abstraction of the Aurora+ API
-    """
-
     def __init__(self, username, password):
-
-        self.username = username
-        self.password = password
+        
         self.Error = ''
-        self.url = 'https://api.auroraenergy.com.au/api'
-
+        self.url = 'https://api.auroraenergy.com.au/api'  
         api_adapter = HTTPAdapter(max_retries=2)
         
-        #Create a session and perform all requests in the same session
+        """Create a session and perform all requests in the same session"""
         session = requests.Session()
         session.mount(self.url, api_adapter)
         session.headers.update({'Accept': 'application/json', 'User-Agent': 'AuroraPlus.py', 'Accept-Encoding' : 'gzip, deflate, br', 'Connection' : 'keep-alive' })
         self.session = session
 
-        #Get access token
+        """Get access token"""
         try:
             token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password}, timeout=(2, 5))
     
@@ -31,11 +25,11 @@ class api:
                 tokenjson = token.json()
                 self.token = tokenjson['accessToken']
 
-                #Get CustomerID and ServiceAgreementID
+                """Get CustomerID and ServiceAgreementID"""
                 current = self.session.get(self.url+'/customers/current',headers={'Authorization': self.token}).json()[0]
                 self.customerId = current['CustomerID']
 
-                #Loop through premises to get active premise
+                """Loop through premises to get active """
                 premises = current['Premises']
                 for premise in premises:
                     if (premise['ServiceAgreementStatus'] == 'Active'):
@@ -49,6 +43,7 @@ class api:
             self.Error = 'Token request timed out'
 
     def request(self, timespan):
+        
         try:
             request = self.session.get(self.url + '/usage/' + timespan +'?serviceAgreementID=' + self.serviceAgreementID + '&customerId=' + self.customerId + '&index=-1', headers={'Authorization': self.token})
             if (request.status_code == 200):
@@ -74,14 +69,15 @@ class api:
        self.year = self.request("year")
 
     def getcurrent(self):
+
         try:
-            #Request current customer data
+            """Request current customer data"""
             current = self.session.get(self.url+'/customers/current',headers={'Authorization': self.token})
 
             if (current.status_code == 200):
                 currentjson = current.json()[0]
 
-                #Loop through premises to match serviceAgreementID already found in token request
+                """Loop through premises to match serviceAgreementID already found in token request"""
                 premises = currentjson['Premises']
                 found = ''
                 for premise in premises:
