@@ -1,9 +1,8 @@
-AuroraPlus.py is a package to pull data from https://api.auroraenergy.com.au/api. To use the Aurora+ API you need a valid account with Aurora.
+AuroraPlus is a package to pull data from https://api.auroraenergy.com.au/api. To use the Aurora+ API you need a valid account with Aurora.
 
-## Install
+## Requirements
 - Install Python 3.9 (for all users)
-- Pip install requests (Requests is a requirement of AuroraPlus)
-- pip install auroraplus
+- Pip install requests
 
 ## Usage
 
@@ -12,7 +11,7 @@ Connect to Aurora+ API:
     import auroraplus
     AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
 
-To get information about your current account use the following:
+To get current account information use the following:
 
     AuroraPlus.getcurrent()
 
@@ -29,6 +28,8 @@ getcurrent() gets the following data:
     BillTotalAmount
     NumberOfUnpaidBills
     BillOverDueAmount
+    
+    Note: All data except AverageDailyUsage is updated Daily.
 
 An example getting specific data with getcurrent:
 
@@ -39,6 +40,30 @@ An example getting specific data with getcurrent:
         print(AuroraPlus.AmountOwed)
     else:
         print(AuroraPlus.Error)
+        
+To get summary usage information use the following:
+
+    AuroraPlus.getsummary()
+    
+    Note: This returns two collections, DollarValueUsage and KilowattHourUsage.
+    
+An example getting specific data with getsummary:
+
+    import auroraplus
+    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
+    if (not AuroraPlus.Error):
+        AuroraPlus.getsummary()
+        print(AuroraPlus.DollarValueUsage['T41'])
+        print(AuroraPlus.DollarValueUsage['T31'])
+        print(AuroraPlus.DollarValueUsage['Other'])
+        print(AuroraPlus.DollarValueUsage['Total'])
+        print(AuroraPlus.KilowattHourUsage['T41'])
+        print(AuroraPlus.KilowattHourUsage['T31'])
+        print(AuroraPlus.KilowattHourUsage['Total'])
+    else:
+        print(AuroraPlus.Error)
+        
+    Note: Offpeak tarrifs not listed
 
 To get usage data use the following, this returns all available data in json format for each timespan:
 

@@ -6,8 +6,7 @@ from requests.exceptions import Timeout
 class api:
 
     def __init__(self, username, password):
-        
-        self.Error = ''
+        self.Error = None
         self.url = 'https://api.auroraenergy.com.au/api'  
         api_adapter = HTTPAdapter(max_retries=2)
         
@@ -42,8 +41,7 @@ class api:
         except Timeout:
             self.Error = 'Token request timed out'
 
-    def request(self, timespan):
-        
+    def request(self, timespan): 
         try:
             request = self.session.get(self.url + '/usage/' + timespan +'?serviceAgreementID=' + self.serviceAgreementID + '&customerId=' + self.customerId + '&index=-1', headers={'Authorization': self.token})
             if (request.status_code == 200):
@@ -52,6 +50,11 @@ class api:
                 self.Error = 'Data request failed: ' + request.reason  
         except Timeout:
             self.Error = 'Data request timed out'
+
+    def getsummary(self):
+        summarydata = self.request("day")
+        self.DollarValueUsage = summarydata['SummaryTotals']['DollarValueUsage']
+        self.KilowattHourUsage = summarydata['SummaryTotals']['KilowattHourUsage']
 
     def getday(self):
         self.day = self.request("day")
@@ -69,7 +72,6 @@ class api:
        self.year = self.request("year")
 
     def getcurrent(self):
-
         try:
             """Request current customer data"""
             current = self.session.get(self.url+'/customers/current',headers={'Authorization': self.token})
@@ -85,7 +87,7 @@ class api:
                         found = 'true'
                         self.AmountOwed = premise['AmountOwed']
                         self.EstimatedBalance = premise['EstimatedBalance']
-                        self.AverageDailyUsaged = premise['AverageDailyUsage']
+                        self.AverageDailyUsage = premise['AverageDailyUsage']
                         self.UsageDaysRemaining = premise['UsageDaysRemaining']
                         self.HasSolar = premise['HasSolar']
                         self.Address = premise['Address']
