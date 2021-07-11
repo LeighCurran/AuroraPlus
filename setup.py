@@ -5,7 +5,7 @@ from os import path
 setup(
   name = 'auroraplus',
   packages = ['auroraplus'],
-  version = '1.1.0',
+  version = '1.1.1',
   license='MIT',
   description = 'Python library to access the Aurora+ API: https://api.auroraenergy.com.au/api',
   long_description="""AuroraPlus is a package to pull data from https://api.auroraenergy.com.au/api. To use the Aurora+ API you need a valid account with Aurora.
@@ -30,8 +30,6 @@ getcurrent() gets the following data:
     EstimatedBalance - This is shown in the Aurora+ app as 'Balance'
     UsageDaysRemaining - This is shown in the Aurora+ app as 'Days Prepaid'
     AverageDailyUsage
-    HasSolar
-    Address
     AmountOwed
     ActualBalance
     UnbilledAmount

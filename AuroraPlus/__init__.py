@@ -85,17 +85,15 @@ class api:
                 for premise in premises:
                     if (premise['ServiceAgreementID'] == self.serviceAgreementID):
                         found = 'true'
-                        self.AmountOwed = premise['AmountOwed']
-                        self.EstimatedBalance = premise['EstimatedBalance']
-                        self.AverageDailyUsage = premise['AverageDailyUsage']
+                        self.AmountOwed = "{:.2f}".format(premise['AmountOwed'])
+                        self.EstimatedBalance = "{:.2f}".format(premise['EstimatedBalance'])
+                        self.AverageDailyUsage = "{:.2f}".format(premise['AverageDailyUsage'])
                         self.UsageDaysRemaining = premise['UsageDaysRemaining']
-                        self.HasSolar = premise['HasSolar']
-                        self.Address = premise['Address']
-                        self.ActualBalance = premise['ActualBalance']
-                        self.UnbilledAmount = premise['UnbilledAmount']
-                        self.BillTotalAmount = premise['BillTotalAmount']
+                        self.ActualBalance = "{:.2f}".format(premise['ActualBalance'])
+                        self.UnbilledAmount = "{:.2f}".format(premise['UnbilledAmount'])
+                        self.BillTotalAmount = "{:.2f}".format(premise['BillTotalAmount'])
                         self.NumberOfUnpaidBills = premise['NumberOfUnpaidBills']
-                        self.BillOverDueAmount = premise['BillOverDueAmount']
+                        self.BillOverDueAmount = "{:.2f}".format(premise['BillOverDueAmount'])
                 if (found != 'true'):
                     self.Error = 'ServiceAgreementID not found'
             else:

@@ -20,8 +20,6 @@ getcurrent() gets the following data:
     EstimatedBalance - This is shown in the Aurora+ app as 'Balance'
     UsageDaysRemaining - This is shown in the Aurora+ app as 'Days Prepaid'
     AverageDailyUsage
-    HasSolar
-    Address
     AmountOwed
     ActualBalance
     UnbilledAmount
