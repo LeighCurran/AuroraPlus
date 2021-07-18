@@ -2,11 +2,13 @@
 import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import Timeout
+import time
 
 class api:
 
     def __init__(self, username, password):
         self.Error = None
+        self.token = None
         self.url = 'https://api.auroraenergy.com.au/api'  
         api_adapter = HTTPAdapter(max_retries=2)
         
@@ -16,10 +18,18 @@ class api:
         session.headers.update({'Accept': 'application/json', 'User-Agent': 'AuroraPlus.py', 'Accept-Encoding' : 'gzip, deflate, br', 'Connection' : 'keep-alive' })
         self.session = session
 
+        """Try to get token, retry if failed"""
+        for x in range(2):
+            self.gettoken(username, password)
+            if (self.token is not None):
+                break
+
+
+    def gettoken(self, username, password): 
         """Get access token"""
         try:
             token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password}, timeout=(2, 5))
-    
+
             if (token.status_code == 200):
                 tokenjson = token.json()
                 self.token = tokenjson['accessToken']
