@@ -2,7 +2,6 @@
 import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import Timeout
-import time
 
 class api:
 
@@ -19,16 +18,13 @@ class api:
         self.session = session
 
         """Try to get token, retry if failed"""
-        for x in range(2):
-            self.gettoken(username, password)
-            if (self.token is not None):
-                break
+        self.gettoken(username, password)
 
 
     def gettoken(self, username, password): 
         """Get access token"""
         try:
-            token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password}, timeout=(3,5))
+            token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password}, timeout=(6))
 
             if (token.status_code == 200):
                 tokenjson = token.json()
