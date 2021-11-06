@@ -28,7 +28,7 @@ class api:
     def gettoken(self, username, password): 
         """Get access token"""
         try:
-            token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password}, timeout=(2, 5))
+            token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password}, timeout=(3,5))
 
             if (token.status_code == 200):
                 tokenjson = token.json()
