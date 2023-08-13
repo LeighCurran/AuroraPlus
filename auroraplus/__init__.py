@@ -3,42 +3,48 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import Timeout
 
+
 class api:
 
     def __init__(self, username, password):
         self.Error = None
         self.token = None
-        self.url = 'https://api.auroraenergy.com.au/api'  
+        self.url = 'https://api.auroraenergy.com.au/api'
         api_adapter = HTTPAdapter(max_retries=2)
-        
+
         """Create a session and perform all requests in the same session"""
         session = requests.Session()
         session.mount(self.url, api_adapter)
-        session.headers.update({'Accept': 'application/json', 'User-Agent': 'AuroraPlus.py', 'Accept-Encoding' : 'gzip, deflate, br', 'Connection' : 'keep-alive' })
+        session.headers.update({'Accept': 'application/json', 'User-Agent': 'AuroraPlus.py', 'Accept-Encoding': 'gzip, deflate, br', 'Connection': 'keep-alive'})
         self.session = session
+        self._username = username
+        self._password = password
 
         """Try to get token, retry if failed"""
         self.gettoken(username, password)
 
-
-    def gettoken(self, username, password): 
+    def gettoken(self, username=None, password=None):
         """Get access token"""
+        if not username:
+            username = self._username
+        if not password:
+            password = self._password
         try:
-            token = self.session.post(self.url+'/identity/login',data={'username': username, 'password': password}, timeout=(6))
+            token = self.session.post(self.url + '/identity/login', data={'username': username, 'password': password}, timeout=(6))
 
             if (token.status_code == 200):
                 tokenjson = token.json()
                 self.token = tokenjson['accessToken']
 
                 """Get CustomerID and ServiceAgreementID"""
-                current = self.session.get(self.url+'/customers/current',headers={'Authorization': self.token}).json()[0]
+                current = self.session.get(self.url + '/customers/current', headers={'Authorization': self.token}).json()[0]
                 self.customerId = current['CustomerID']
 
                 """Loop through premises to get active """
                 premises = current['Premises']
                 for premise in premises:
                     if (premise['ServiceAgreementStatus'] == 'Active'):
-                        self.Active = premise['ServiceAgreementStatus'] 
+                        self.Active = premise['ServiceAgreementStatus']
                         self.serviceAgreementID = premise['ServiceAgreementID']
                 if (self.Active != 'Active'):
                     self.Error = 'No active premise found'
@@ -47,40 +53,51 @@ class api:
         except Timeout:
             self.Error = 'Token request timed out'
 
-    def request(self, timespan): 
+    def request(self, timespan, index=-1):
         try:
-            request = self.session.get(self.url + '/usage/' + timespan +'?serviceAgreementID=' + self.serviceAgreementID + '&customerId=' + self.customerId + '&index=-1', headers={'Authorization': self.token})
+            request = self.session.get(
+                self.url
+                + '/usage/'
+                + timespan
+                + '?serviceAgreementID='
+                + self.serviceAgreementID
+                + '&customerId='
+                + self.customerId
+                + '&index='
+                + str(index),
+                headers={'Authorization': self.token}
+            )
             if (request.status_code == 200):
                 return request.json()
             else:
-                self.Error = 'Data request failed: ' + request.reason  
+                self.Error = 'Data request failed: ' + request.reason
         except Timeout:
             self.Error = 'Data request timed out'
 
-    def getsummary(self):
-        summarydata = self.request("day")
+    def getsummary(self, index=-1):
+        summarydata = self.request("day", index)
         self.DollarValueUsage = summarydata['SummaryTotals']['DollarValueUsage']
         self.KilowattHourUsage = summarydata['SummaryTotals']['KilowattHourUsage']
 
-    def getday(self):
-        self.day = self.request("day")
+    def getday(self, index=-1):
+        self.day = self.request("day", index)
 
-    def getweek(self):
-       self.week = self.request("week")
+    def getweek(self, index=-1):
+        self.week = self.request("week", index)
 
-    def getmonth(self):
-       self.month = self.request("month")
+    def getmonth(self, index=-1):
+        self.month = self.request("month", index)
 
-    def getquarter(self):
-       self.quarter = self.request("quarter")
+    def getquarter(self, index=-1):
+        self.quarter = self.request("quarter", index)
 
-    def getyear(self):
-       self.year = self.request("year")
+    def getyear(self, index=-1):
+        self.year = self.request("year", index)
 
     def getcurrent(self):
         try:
             """Request current customer data"""
-            current = self.session.get(self.url+'/customers/current',headers={'Authorization': self.token})
+            current = self.session.get(self.url + '/customers/current', headers={'Authorization': self.token})
 
             if (current.status_code == 200):
                 currentjson = current.json()[0]
