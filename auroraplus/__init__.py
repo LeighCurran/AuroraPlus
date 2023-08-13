@@ -17,12 +17,18 @@ class api:
         session.mount(self.url, api_adapter)
         session.headers.update({'Accept': 'application/json', 'User-Agent': 'AuroraPlus.py', 'Accept-Encoding': 'gzip, deflate, br', 'Connection': 'keep-alive'})
         self.session = session
+        self._username = username
+        self._password = password
 
         """Try to get token, retry if failed"""
         self.gettoken(username, password)
 
-    def gettoken(self, username, password):
+    def gettoken(self, username=None, password=None):
         """Get access token"""
+        if not username:
+            username = self._username
+        if not password:
+            password = self._password
         try:
             token = self.session.post(self.url + '/identity/login', data={'username': username, 'password': password}, timeout=(6))
 
