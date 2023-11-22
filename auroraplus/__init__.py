@@ -3,60 +3,107 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import Timeout
 
+from requests_oauthlib import OAuth2Session
+
 
 class api:
+    USER_AGENT = 'python/auroraplus'
 
-    def __init__(self, username, password):
+    OAUTH_BASE_URL = 'https://customers.auroraenergy.com.au' \
+        '/auroracustomers1p.onmicrosoft.com/b2c_1a_sign_in/'
+    AUTHORIZE_URL = OAUTH_BASE_URL + '/oauth2/v2.0/authorize'
+    TOKEN_URL = OAUTH_BASE_URL + '/oauth2/v2.0/token'
+    CLIENT_ID = '2ff9da64-8629-4a92-a4b6-850a3f02053d'
+    REDIRECT_URI = 'https://my.auroraenergy.com.au/login/redirect'
+
+    API_URL = 'https://api.auroraenergy.com.au/api'
+    BEARER_TOKEN_URL = API_URL + '/identity/LoginToken'
+
+    SCOPE = ['openid', 'profile', 'offline_access']
+
+    def __init__(self,
+                 username: str = None, password: str = None,
+                 token: dict = None):
+        """Initialise the API.
+
+        Parameters:
+        -----------
+
+        username: str
+            Deprecated, kept for backward compatibility
+
+        password: str
+            Deprecated, kept for backward compatibility. If passed with an empty
+            username and no token, the password will be use as a bearer
+            access_token.
+
+        token : dict
+            A pre-established token. It should contain at least an access_token
+            and a token_type.
+
+        """
         self.Error = None
-        self.token = None
-        self.url = 'https://api.auroraenergy.com.au/api'
+        backward_compat = False
+        if not username and not token:
+            # Backward compatibility: if no username and no token,
+            # assume the passowrd is a bearer access token
+            token = {'access_token': password, 'token_type': 'bearer'}
+            backward_compat = True
+        self.token = token
         api_adapter = HTTPAdapter(max_retries=2)
 
         """Create a session and perform all requests in the same session"""
-        session = requests.Session()
-        session.mount(self.url, api_adapter)
-        session.headers.update({'Accept': 'application/json', 'User-Agent': 'AuroraPlus.py', 'Accept-Encoding': 'gzip, deflate, br', 'Connection': 'keep-alive'})
+        session = OAuth2Session(
+            self.CLIENT_ID,
+            redirect_uri=self.REDIRECT_URI,
+            scope=self.SCOPE,
+            token=token
+        )
+        session.mount(self.API_URL, api_adapter)
+        session.headers.update({
+            'Accept': 'application/json',
+            'User-Agent': self.USER_AGENT,
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+        })
         self.session = session
-        self._username = username
-        self._password = password
 
-        """Try to get token, retry if failed"""
-        self.gettoken(username, password)
+        if backward_compat:
+            self.get_info()
 
-    def gettoken(self, username=None, password=None):
-        """Get access token"""
-        if not username:
-            username = self._username
-        if not password:
-            password = self._password
+    def get_token(self, username=None, password=None):
+        """
+        Deprecated, kept for backward compatibility
+        """
+        self.get_info()
+
+    def get_info(self):
+        """Get CustomerID and ServiceAgreementID"""
         try:
-            token = self.session.post(self.url + '/identity/login', data={'username': username, 'password': password}, timeout=(6))
+            r = self.session.get(
+                self.API_URL + '/customers/current'
+            )
+            r.raise_for_status()
+            current = r.json()[0]
+            self.customerId = current['CustomerID']
 
-            if (token.status_code == 200):
-                tokenjson = token.json()
-                self.token = tokenjson['accessToken']
-
-                """Get CustomerID and ServiceAgreementID"""
-                current = self.session.get(self.url + '/customers/current', headers={'Authorization': self.token}).json()[0]
-                self.customerId = current['CustomerID']
-
-                """Loop through premises to get active """
-                premises = current['Premises']
-                for premise in premises:
-                    if (premise['ServiceAgreementStatus'] == 'Active'):
-                        self.Active = premise['ServiceAgreementStatus']
-                        self.serviceAgreementID = premise['ServiceAgreementID']
-                if (self.Active != 'Active'):
-                    self.Error = 'No active premise found'
-            else:
-                self.Error = 'Token request failed: ' + token.reason
+            """Loop through premises to get active """
+            premises = current['Premises']
+            for premise in premises:
+                if (premise['ServiceAgreementStatus'] == 'Active'):
+                    self.Active = premise['ServiceAgreementStatus']
+                    self.serviceAgreementID = premise['ServiceAgreementID']
+            if (self.Active != 'Active'):
+                self.Error = 'No active premise found'
         except Timeout:
-            self.Error = 'Token request timed out'
+            self.Error = 'Info request timed out'
 
     def request(self, timespan, index=-1):
+        if not self.serviceAgreementID:
+            self.get_info()
         try:
             request = self.session.get(
-                self.url
+                self.API_URL
                 + '/usage/'
                 + timespan
                 + '?serviceAgreementID='
@@ -64,8 +111,7 @@ class api:
                 + '&customerId='
                 + self.customerId
                 + '&index='
-                + str(index),
-                headers={'Authorization': self.token}
+                + str(index)
             )
             if (request.status_code == 200):
                 return request.json()
@@ -97,7 +143,9 @@ class api:
     def getcurrent(self):
         try:
             """Request current customer data"""
-            current = self.session.get(self.url + '/customers/current', headers={'Authorization': self.token})
+            current = self.session.get(
+                self.API_URL + '/customers/current'
+            )
 
             if (current.status_code == 200):
                 currentjson = current.json()[0]

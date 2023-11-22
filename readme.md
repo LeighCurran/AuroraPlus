@@ -11,7 +11,8 @@ AuroraPlus is a package to pull data from https://api.auroraenergy.com.au/api. T
 Connect to Aurora+ API:
 
     import auroraplus
-    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
+    AuroraPlus = auroraplus.api(token={"access_token": "...", "token_type": "bearer"})
+    AuroraPlus.get_info()
 
 To get current account information use the following:
 
@@ -34,7 +35,8 @@ getcurrent() gets the following data:
 An example getting specific data with getcurrent:
 
     import auroraplus
-    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
+    AuroraPlus = auroraplus.api(token={"access_token": "...", "token_type": "bearer"})
+    AuroraPlus.get_info()
     if (not AuroraPlus.Error):
         AuroraPlus.getcurrent()
         print(AuroraPlus.AmountOwed)
@@ -50,7 +52,8 @@ To get summary usage information use the following:
 An example getting specific data with getsummary:
 
     import auroraplus
-    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
+    AuroraPlus = auroraplus.api(token={"access_token": "...", "token_type": "bearer"})
+    AuroraPlus.get_info()
     if (not AuroraPlus.Error):
         AuroraPlus.getsummary()
         print(AuroraPlus.DollarValueUsage['T41'])
@@ -75,7 +78,8 @@ To get usage data use the following, this returns all available data in json for
 
 Full example:
 
-    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
+    AuroraPlus = auroraplus.api(token={"access_token": "...", "token_type": "bearer"})
+    AuroraPlus.get_info()
     if (not AuroraPlus.Error):
         AuroraPlus.getcurrent()
         print(AuroraPlus.AmountOwed)

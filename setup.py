@@ -3,12 +3,12 @@ from distutils.core import setup
 from os import path
 
 setup(
-  name = 'auroraplus',
-  packages = ['auroraplus'],
-  version = '1.1.6',
-  license='MIT',
-  description = 'Python library to access the Aurora+ API: https://api.auroraenergy.com.au/api',
-  long_description="""AuroraPlus is a package to pull data from https://api.auroraenergy.com.au/api. To use the Aurora+ API you need a valid account with Aurora.
+    name='auroraplus',
+    packages=['auroraplus'],
+    version='1.1.6',
+    license='MIT',
+    description='Python library to access the Aurora+ API: https://api.auroraenergy.com.au/api',
+    long_description="""AuroraPlus is a package to pull data from https://api.auroraenergy.com.au/api. To use the Aurora+ API you need a valid account with Aurora.
 
 ## Requirements
 - Install Python 3.9 (for all users)
@@ -19,7 +19,8 @@ setup(
 Connect to Aurora+ API:
 
     import auroraplus
-    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
+    AuroraPlus = auroraplus.api(token)
+    AuroraPlus.get_info()
 
 To get current account information use the following:
 
@@ -42,7 +43,8 @@ getcurrent() gets the following data:
 An example getting specific data with getcurrent:
 
     import auroraplus
-    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
+    AuroraPlus = auroraplus.api(token={"access_token": "...", "token_type": "bearer"})
+    AuroraPlus.get_info()
     if (not AuroraPlus.Error):
         AuroraPlus.getcurrent()
         print(AuroraPlus.AmountOwed)
@@ -58,7 +60,8 @@ To get summary usage information use the following:
 An example getting specific data with getsummary:
 
     import auroraplus
-    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
+    AuroraPlus = auroraplus.api(token={"access_token": "...", "token_type": "bearer"})
+    AuroraPlus.get_info()
     if (not AuroraPlus.Error):
         AuroraPlus.getsummary()
         print(AuroraPlus.DollarValueUsage['T41'])
@@ -83,7 +86,8 @@ To get usage data use the following, this returns all available data in json for
 
 Full example:
 
-    AuroraPlus = auroraplus.api("user.name@outlook.com", "password")
+    AuroraPlus = auroraplus.api(token={"access_token": "...", "token_type": "bearer"})
+    AuroraPlus.get_info()
     if (not AuroraPlus.Error):
         AuroraPlus.getcurrent()
         print(AuroraPlus.AmountOwed)
@@ -101,23 +105,24 @@ Full example:
         print(AuroraPlus.year)
     else:
         print(AuroraPlus.Error)""",
-  long_description_content_type='text/markdown',
-  author = 'Leigh Curran',
-  author_email = 'AuroraPlusPy@outlook.com',
-  url = 'https://github.com/leighcurran/AuroraPlus',
-  keywords = ['Aurora+', 'AuroraPlus', 'Aurora', 'Tasmania', 'API'],
-  install_requires=[
-          'requests',
-      ],
-  classifiers=[
-    'Development Status :: 3 - Alpha',      # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
-    'Intended Audience :: Developers',
-    'Topic :: Software Development :: Build Tools',
-    'License :: OSI Approved :: MIT License',
-    'Programming Language :: Python :: 3.5',
-    'Programming Language :: Python :: 3.6',
-    'Programming Language :: Python :: 3.7',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
-  ],
+    long_description_content_type='text/markdown',
+    author='Leigh Curran',
+    author_email='AuroraPlusPy@outlook.com',
+    url='https://github.com/leighcurran/AuroraPlus',
+    keywords=['Aurora+', 'AuroraPlus', 'Aurora', 'Tasmania', 'API'],
+    install_requires=[
+        'requests',
+        'requests_oauthlib',
+    ],
+    classifiers=[
+        'Development Status :: 3 - Alpha',      # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
+        'Intended Audience :: Developers',
+        'Topic :: Software Development :: Build Tools',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+    ],
 )
