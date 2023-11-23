@@ -1,12 +1,48 @@
 """Abstraction of the Aurora+ API"""
-import requests
+import base64
+import hashlib
+import json
+import random
+import string
+import uuid
+
 from requests.adapters import HTTPAdapter
 from requests.exceptions import Timeout
-
 from requests_oauthlib import OAuth2Session
 
 
 class api:
+    '''
+    A client to interact with the Aurora+ API.
+
+    Obtaining a new OAuth token is done in two steps:
+
+        >>> import auroraplus
+        >>> api = auroraplus.api()
+        >>> api.oauth_authorize()
+        'https://customers.auroraenergy.com.au/...'
+
+    After following the prompts, the URL of the (error) page that's returned should be passed as the redirect URI.
+
+        >>> token = api.oauth_redirect('https://my.auroraenergy.com.au/login/redirect?state=...')
+
+    The `api` object is now authenticated.
+
+
+    Data can then be fetched with
+
+        >>> api.getcurrent()
+        >>> api.getday()
+        >>> api.getmonth()
+        >>> api.getquarter()
+        >>> api.getyear()
+
+    and inspected in, e.g.,
+
+        >>> api.day
+        {'StartDate': '2023-12-25T13:00:00Z', 'EndDate': '2023-12-26T13:00:00Z', 'TimeMeasureCount': 1, ...
+
+    '''
     USER_AGENT = 'python/auroraplus'
 
     OAUTH_BASE_URL = 'https://customers.auroraenergy.com.au' \
@@ -26,6 +62,15 @@ class api:
                  token: dict = None):
         """Initialise the API.
 
+        An authenticated object can be recreated from a preexisting OAuth `token` with
+
+            >>> api = auroraplus.api(token)
+
+
+        Alternatively, a backward compatible way exists to only pass the `access_token`
+
+            >>> api = auroraplus.api(password=token['access_token'])
+
         Parameters:
         -----------
 
@@ -44,9 +89,9 @@ class api:
         """
         self.Error = None
         backward_compat = False
-        if not username and not token:
+        if not token and password and not username:
             # Backward compatibility: if no username and no token,
-            # assume the passowrd is a bearer access token
+            # assume the password is a bearer access token
             token = {'access_token': password, 'token_type': 'bearer'}
             backward_compat = True
         self.token = token
@@ -68,10 +113,101 @@ class api:
         })
         self.session = session
 
-        if backward_compat:
+        if backward_compat and self.token:
             self.get_info()
 
-    def get_token(self, username=None, password=None):
+    def oauth_authorize(self) -> str:
+        """
+        Start an OAuth Web Application authentication with Aurora Plus
+
+        Returns:
+        --------
+
+        str: the URL to query interactively to authorize this session
+
+        """
+        state = {
+            "id": str(uuid.uuid4()),
+            "meta": {"interactionType": "redirect"},
+        }
+
+        self.code_verifier = ''.join([random.choice(
+            string.ascii_letters
+            + string.digits
+            + '-_')
+            for i in range(43)])
+        code_challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(self.code_verifier.encode()).digest()
+        ).strip(b'=')
+
+        authorization_url, _ = self.session.authorization_url(
+            self.AUTHORIZE_URL,
+            client_request_id=uuid.uuid4(),
+            client_info=1,
+            code_challenge=code_challenge,
+            code_challenge_method='S256',
+            state=base64.encodebytes(json.dumps(state).encode()))
+
+        return authorization_url
+
+    def oauth_redirect(self, authorization_response: str):
+        """
+        Continue an OAuth Web Application authentication with Aurora Plus.
+
+        Needs to be called after oauth_authorize.
+
+        Parameters:
+        -----------
+
+        authorization_response: str
+
+            The full URI of the response (error) page after authentication.
+
+        Returns:
+        --------
+
+        dict: full token information
+
+        """
+        if not self.session.compliance_hook['access_token_response']:
+            self.session.register_compliance_hook(
+                'access_token_response',
+                self._include_access_token)
+
+        return self.session.fetch_token(
+            self.TOKEN_URL,
+            authorization_response=authorization_response,
+            code_verifier=self.code_verifier,
+        )
+
+    def _include_access_token(self, r) -> dict:
+        """
+        OAuth compliance hook to fetch the bespoke LoginToken,
+        and present it as a standard access_token.
+
+        Returns:
+        --------
+
+        dict: the full token
+        """
+        rjs = r.json()
+        id_token = rjs.get('id_token')
+
+        atr = self.session.post(self.BEARER_TOKEN_URL,
+                                json={'token': id_token}
+                                )
+        access_token = atr.json().get('accessToken')
+
+        rjs.update({
+            'access_token': access_token.split()[1],
+            'scope': 'openid profile offline_access',
+        })
+
+        r._content = json.dumps(rjs).encode()
+
+        return r
+
+    def gettoken(self, username=None, password=None):
         """
         Deprecated, kept for backward compatibility
         """
