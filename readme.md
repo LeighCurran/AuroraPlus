@@ -10,8 +10,11 @@ AuroraPlus is a package to pull data from https://api.auroraenergy.com.au/api. T
 
 ### Obtain a token
 
-Obtaining a token is an interactive process where the user needs to log on to
-the AuroraPlus web application.
+The easieast way to obtain a new token is to use the `auroraplus_get_token`
+script.
+
+To do this more programatically, obtaining a token is an interactive process
+where the user needs to log on to the AuroraPlus web application.
 
     >>> import auroraplus
     >>> api = auroraplus.api()

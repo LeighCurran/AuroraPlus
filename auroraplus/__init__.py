@@ -10,6 +10,7 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import Timeout
 from requests_oauthlib import OAuth2Session
 
+from .get_token import get_token
 
 class api:
     '''
