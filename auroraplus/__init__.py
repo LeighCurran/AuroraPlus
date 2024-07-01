@@ -141,7 +141,7 @@ class api:
             hashlib.sha256(self.code_verifier.encode()).digest()
         ).strip(b'=')
 
-        authorization_url, _ = self.session.authorization_url(
+        self.authorization_url, _ = self.session.authorization_url(
             self.AUTHORIZE_URL,
             client_request_id=uuid.uuid4(),
             client_info=1,
@@ -149,7 +149,7 @@ class api:
             code_challenge_method='S256',
             state=base64.encodebytes(json.dumps(state).encode()))
 
-        return authorization_url
+        return self.authorization_url
 
     def oauth_redirect(self, authorization_response: str):
         """
@@ -180,6 +180,36 @@ class api:
             authorization_response=authorization_response,
             code_verifier=self.code_verifier,
         )
+
+    def oauth_dump(self) -> dict:
+        """
+        Export partial OAuth state, for use in asynchronous or request/response-based
+        workflows.
+
+        Returns:
+        --------
+
+        dict: a dict of all the relevant state
+        """
+        return {
+            'authorization_url': self.authorization_url,
+            'code_verifier': self.code_verifier,
+        }
+
+    def oauth_load(self,
+                   authorization_url: str,
+                   code_verifier: str,
+                   ):
+        """
+        Import partial OAuth state.
+
+        Params:
+        -------
+
+        kwargs: pass the state dict returned from oauth_dump.
+        """
+        self.authorization_url = authorization_url
+        self.code_verifier = code_verifier
 
     def _include_access_token(self, r) -> dict:
         """
