@@ -19,6 +19,7 @@ setup(
     url='https://github.com/leighcurran/AuroraPlus',
     keywords=['Aurora+', 'AuroraPlus', 'Aurora', 'Tasmania', 'API'],
     install_requires=[
+        'brotli',
         'requests',
         'requests_oauthlib',
     ],
