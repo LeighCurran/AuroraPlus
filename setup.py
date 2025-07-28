@@ -7,7 +7,7 @@ long_description = (this_directory / "readme.md").read_text()
 setup(
     name='auroraplus',
     packages=['auroraplus'],
-    version='1.1.6',
+    version='1.6.0',
     license='MIT',
     description='Python library to access the Aurora+ API: https://api.auroraenergy.com.au/api',
     long_description=long_description,
