@@ -2,7 +2,7 @@ from distutils.core import setup
 
 from pathlib import Path
 this_directory = Path(__file__).parent
-long_description = (this_directory / "readme.md").read_text()
+long_description = (this_directory / "README.md").read_text()
 
 setup(
     name='auroraplus',
@@ -21,6 +21,9 @@ setup(
         'requests',
         'requests_oauthlib',
     ],
+    extras_require={
+        'build': [ 'build<0.10.0' ],
+    },
     classifiers=[
         'Development Status :: 3 - Alpha',      # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
         'Intended Audience :: Developers',
