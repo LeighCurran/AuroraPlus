@@ -4,7 +4,7 @@ AuroraPlus is a package to pull data from https://api.auroraenergy.com.au/api. T
 
 ## Requirements
 - Install Python 3.9 (for all users)
-- Pip install requests
+- `pip install .`
 
 ## Usage
 
@@ -131,3 +131,16 @@ Full example:
         print(AuroraPlus.year)
     else:
         print(AuroraPlus.Error)
+
+## Development
+
+### Tests
+
+Currently, tests only do a lint check.
+
+    pip install -e .[test]
+    pytest
+
+Some errors can be fixed automatically with
+
+    ruff check --fix
