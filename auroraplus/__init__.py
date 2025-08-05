@@ -7,6 +7,7 @@ import random
 import string
 import uuid
 
+from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.exceptions import Timeout
 from requests_oauthlib import OAuth2Session
@@ -60,10 +61,16 @@ class api:
 
     API_URL = "https://api.auroraenergy.com.au/api"
     BEARER_TOKEN_URL = API_URL + "/identity/LoginToken"
+    BEARER_TOKEN_REFRESH_URL = API_URL + "/identity/refreshToken"
 
     SCOPE = ["openid", "profile", "offline_access"]
 
-    def __init__(self, username: str = None, password: str = None, token: dict = None):
+    def __init__(
+        self,
+        username: str | None = None,
+        password: str | None = None,
+        token: dict | None = None,
+    ):
         """Initialise the API.
 
         An authenticated object can be recreated from a preexisting OAuth `token` with
@@ -219,24 +226,28 @@ class api:
         self.authorization_url = authorization_url
         self.code_verifier = code_verifier
 
-    def _include_access_token(self, r) -> dict:
+    def _include_access_token(self, r) -> Response:
         """
         OAuth compliance hook to fetch the bespoke LoginToken,
-        and present it as a standard access_token.
+        and present it as a standard access_token, as well as the value of the
+        RefreshToken cookie, for later requests to BEARER_TOKEN_REFRESH_URL.
 
         Returns:
         --------
 
-        dict: the full token
+        dict: the full token, with additional cookie_RefreshToken attribute.
         """
         rjs = r.json()
         id_token = rjs.get("id_token")
 
         atr = self.session.post(self.BEARER_TOKEN_URL, json={"token": id_token})
+        refresh_token_cookie = atr.cookies.get("RefreshToken")
+
         access_token = atr.json().get("accessToken")
 
         rjs.update(
             {
+                "cookie_RefreshToken": refresh_token_cookie,
                 "access_token": access_token.split()[1],
                 "scope": "openid profile offline_access",
             }

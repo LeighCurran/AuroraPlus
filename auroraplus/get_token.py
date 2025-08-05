@@ -22,7 +22,12 @@ def get_token():
     print("\nThe new token is\n")
     print(token)
 
-    print("\n The access token is\n")
+    print(
+        f"\nThe RefreshToken _cookie_ to refresh access tokens from {api.BEARER_TOKEN_REFRESH_URL}) is\n"
+    )
+    print(token["cookie_RefreshToken"])
+
+    print("\nThe access token (to use as a bearer token) is\n")
     print(token["access_token"])
 
 
