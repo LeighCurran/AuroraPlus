@@ -65,6 +65,9 @@ class api:
 
     SCOPE = ["openid", "profile", "offline_access"]
 
+    session: OAuth2Session
+    token: dict[str, str]
+
     def __init__(
         self,
         username: str | None = None,
@@ -266,7 +269,7 @@ class api:
     def get_info(self):
         """Get CustomerID and ServiceAgreementID"""
         try:
-            r = self.session.get(self.API_URL + "/customers/current")
+            r = self._fetch(self.API_URL + "/customers/current")
             r.raise_for_status()
             current = r.json()[0]
             self.customerId = current["CustomerID"]
@@ -286,7 +289,7 @@ class api:
         if not self.serviceAgreementID:
             self.get_info()
         try:
-            request = self.session.get(
+            request = self._fetch(
                 self.API_URL
                 + "/usage/"
                 + timespan
@@ -327,7 +330,7 @@ class api:
     def getcurrent(self):
         try:
             """Request current customer data"""
-            current = self.session.get(self.API_URL + "/customers/current")
+            current = self._fetch(self.API_URL + "/customers/current")
 
             if current.status_code == 200:
                 currentjson = current.json()[0]
@@ -361,3 +364,21 @@ class api:
                 self.Error = "Current request failed: " + current.reason
         except Timeout:
             self.Error = "Current request timed out"
+
+    def _fetch(self, url: str) -> Response:
+        r = self.session.get(url)
+
+        if r.status_code in [401, 403] and (
+            cookie_refresh_token := self.token.get("cookie_RefreshToken")
+        ):
+            rtr = self.session.post(
+                self.BEARER_TOKEN_REFRESH_URL,
+                json={"token": self.token["refresh_token"]},
+                cookies={"RefreshToken": cookie_refresh_token},
+            )
+            rtr.raise_for_status()
+            self.token["access_token"] = rtr.json()["accessToken"].split()[1]
+            self.session.access_token = self.token["access_token"]
+            r = self.session.get(url)
+
+        return r
