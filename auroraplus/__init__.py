@@ -6,6 +6,7 @@ import json
 import random
 import string
 import uuid
+import logging
 
 from requests import Response
 from requests.adapters import HTTPAdapter
@@ -13,6 +14,8 @@ from requests.exceptions import Timeout
 from requests_oauthlib import OAuth2Session
 
 from .get_token import get_token
+
+LOGGER = logging.getLogger(__name__)
 
 
 class api:
@@ -66,48 +69,96 @@ class api:
     SCOPE = ["openid", "profile", "offline_access"]
 
     session: OAuth2Session
-    token: dict[str, str]
+    token: dict
 
     def __init__(
         self,
         username: str | None = None,
         password: str | None = None,
+        *,
         token: dict | None = None,
+        id_token: str | None = None,
+        access_token: str | None = None,
     ):
         """Initialise the API.
 
         An authenticated object can be recreated from a preexisting OAuth `token` with
 
-            >>> api = auroraplus.api(token)
+            >>> api = auroraplus.api(token=token)
 
+        A bearer `access_token` can be provided for for one-off queries.
 
-        Alternatively, a backward compatible way exists to only pass the `access_token`
+            >>> api = auroraplus.api(access_token=token['access_token'])
 
+        For queries over a longer period of time (>24h), it is possible to pass
+        a recent `id_token`, and let the library handle refreshes.
+
+            >>> api = auroraplus.api(id_token=token['id_token'])
+
+        Backward-compatible ways exists to only pass the `access_token` or `id_token`,
+        as `password` and `username`, respectively>
+
+            >>> api = auroraplus.api(username=token['id_token'])
             >>> api = auroraplus.api(password=token['access_token'])
 
         Parameters:
         -----------
 
         username: str
-            Deprecated, kept for backward compatibility
+
+            Deprecated, kept for backward compatibility. If passed with an empty
+            `password` and no `token`, the `username` will be used as an `id_token`.
 
         password: str
+
             Deprecated, kept for backward compatibility. If passed with an empty
-            username and no token, the password will be use as a bearer
-            access_token.
+            `username` and no `token`, the `password` will be used as a bearer
+            `access_token`.
 
         token : dict
-            A pre-established token. It should contain at least an access_token
-            and a token_type.
+
+            A pre-established token. For one-off use, it should contain at least an
+            `access_token` and a `token_type`. For use over 24h, the `RefreshToken`,
+            cookie obtainable by presenting the `id_token` to the `LoginToken` endpoint, should be
+            present as `cookie_RefreshToken`. Any token obtain using the `oauth_*` methods
+            will contain the necessary information.
+
+        access_token : str
+
+            Used for short-lived (<24h) sessions.
+
+        id_token : str
+
+            Used to retrieve an `access_token` and an `cookie_RefreshToken` for
+            longer-lived sessions.
 
         """
         self.Error = None
         backward_compat = False
-        if not token and password and not username:
-            # Backward compatibility: if no username and no token,
-            # assume the password is a bearer access token
-            token = {"access_token": password, "token_type": "bearer"}
-            backward_compat = True
+        if not token:
+            if password and not username:
+                # Backward compatibility: if no username and no token,
+                # assume the password is a bearer access token
+                LOGGER.warning(
+                    "received deprecated password only, assuming access_token..."
+                )
+                access_token = password
+                backward_compat = True
+            elif username and not password:
+                # Backward compatibility to pass a full token as the first, and only, argument.
+                LOGGER.warning(
+                    "received deprecated username only, assuming id_token..."
+                )
+                id_token = username
+
+        token = token or {}
+
+        if access_token:
+            token["access_token"] = access_token
+            token["token_type"] = "bearer"
+        if id_token:
+            token["id_token"] = id_token
+
         self.token = token
         api_adapter = HTTPAdapter(max_retries=2)
 
@@ -243,15 +294,12 @@ class api:
         rjs = r.json()
         id_token = rjs.get("id_token")
 
-        atr = self.session.post(self.BEARER_TOKEN_URL, json={"token": id_token})
-        refresh_token_cookie = atr.cookies.get("RefreshToken")
-
-        access_token = atr.json().get("accessToken")
+        access_token, refresh_token_cookie = self._get_access_token(id_token)
 
         rjs.update(
             {
+                "access_token": access_token,
                 "cookie_RefreshToken": refresh_token_cookie,
-                "access_token": access_token.split()[1],
                 "scope": "openid profile offline_access",
             }
         )
@@ -366,14 +414,29 @@ class api:
             self.Error = "Current request timed out"
 
     def _fetch(self, url: str) -> Response:
+        if not self.token.get("access_token") and (
+            id_token := self.token.get("id_token")
+        ):
+            access_token, refresh_token_cookie = self._get_access_token(id_token)
+
+            self.token.update(
+                {
+                    "access_token": access_token,
+                    "cookie_RefreshToken": refresh_token_cookie,
+                    "token_type": "bearer",
+                }
+            )
+
         r = self.session.get(url)
 
         if r.status_code in [401, 403] and (
             cookie_refresh_token := self.token.get("cookie_RefreshToken")
         ):
+            LOGGER.info("access_token refused, renewing...")
             rtr = self.session.post(
                 self.BEARER_TOKEN_REFRESH_URL,
-                json={"token": self.token["refresh_token"]},
+                # Not really needed.
+                json={"token": self.token.get("refresh_token")},
                 cookies={"RefreshToken": cookie_refresh_token},
             )
             rtr.raise_for_status()
@@ -382,3 +445,25 @@ class api:
             r = self.session.get(url)
 
         return r
+
+    def _get_access_token(self, id_token: str) -> tuple[str, str]:
+        # Incorrect, but looks the part for validation.
+        self.session.token["access_token"] = id_token
+
+        atr = self.session.post(self.BEARER_TOKEN_URL, json={"token": id_token})
+        atr.raise_for_status()
+
+        refresh_token_cookie = atr.cookies.get("RefreshToken")
+        access_token = atr.json().get("accessToken").split()[1]
+
+        if not refresh_token_cookie:
+            raise ValueError(
+                f"Missing RefreshToken cookie in {self.BEARER_TOKEN_URL} response"
+            )
+
+        if not access_token:
+            raise ValueError(
+                f"Missing access_token in {self.BEARER_TOKEN_URL} response"
+            )
+
+        return access_token, refresh_token_cookie
