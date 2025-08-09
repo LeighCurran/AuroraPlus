@@ -432,7 +432,7 @@ class api:
         if r.status_code in [401, 403] and (
             cookie_refresh_token := self.token.get("cookie_RefreshToken")
         ):
-            LOGGER.info("access_token refused, renewing...")
+            LOGGER.info("access_token refused, refreshing...")
             rtr = self.session.post(
                 self.BEARER_TOKEN_REFRESH_URL,
                 # Not really needed.
@@ -448,6 +448,7 @@ class api:
 
     def _get_access_token(self, id_token: str) -> tuple[str, str]:
         # Incorrect, but looks the part for validation.
+        LOGGER.debug("retrieving access_token with id_token...")
         self.session.token["access_token"] = id_token
 
         atr = self.session.post(self.BEARER_TOKEN_URL, json={"token": id_token})
