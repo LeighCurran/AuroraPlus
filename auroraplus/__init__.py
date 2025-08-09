@@ -334,7 +334,7 @@ class api:
             self.Error = "Info request timed out"
 
     def request(self, timespan, index=-1):
-        if not self.serviceAgreementID:
+        if not hasattr(self, "serviceAgreementID") or not self.serviceAgreementID:
             self.get_info()
         try:
             request = self._fetch(
