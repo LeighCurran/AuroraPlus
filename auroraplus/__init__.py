@@ -10,10 +10,8 @@ import logging
 
 from requests import Response
 from requests.adapters import HTTPAdapter
-from requests.exceptions import Timeout
+from requests.exceptions import HTTPError, Timeout
 from requests_oauthlib import OAuth2Session
-
-from .get_token import get_token
 
 LOGGER = logging.getLogger(__name__)
 
@@ -201,7 +199,7 @@ class api:
         self.code_verifier = "".join(
             [
                 random.choice(string.ascii_letters + string.digits + "-_")
-                for i in range(43)
+                for _ in range(43)
             ]
         )
         code_challenge = base64.urlsafe_b64encode(
@@ -414,25 +412,39 @@ class api:
             self.Error = "Current request timed out"
 
     def _fetch(self, url: str) -> Response:
-        if not self.token.get("access_token") and (
-            id_token := self.token.get("id_token")
-        ):
-            access_token, refresh_token_cookie = self._get_access_token(id_token)
+        if not self.token.get("access_token"):
+            LOGGER.debug("access_token missing, obtaining...")
 
-            self.token.update(
-                {
-                    "access_token": access_token,
-                    "cookie_RefreshToken": refresh_token_cookie,
-                    "token_type": "bearer",
-                }
-            )
+            if id_token := self.token.get("id_token"):
+                try:
+                    access_token, refresh_token_cookie = self._get_access_token(
+                        id_token
+                    )
+                except HTTPError as exc:
+                    # We'll continue, fail, and hopefully get a chance to use the
+                    # RefreshToken cookie.
+                    LOGGER.warning(f"can't obtain access_token: {exc}")
+                    pass
+                else:
+                    self.token.update(
+                        {
+                            "access_token": access_token,
+                            "cookie_RefreshToken": refresh_token_cookie,
+                            "token_type": "bearer",
+                        }
+                    )
+                    self.session.access_token = access_token
 
         r = self.session.get(url)
 
-        if r.status_code in [401, 403] and (
-            cookie_refresh_token := self.token.get("cookie_RefreshToken")
-        ):
+        if r.status_code in [401, 403]:
             LOGGER.info("access_token refused, refreshing...")
+
+            if not (cookie_refresh_token := self.token.get("cookie_RefreshToken")):
+                raise AttributeError(
+                    "can't refresh access_token: RefreshToken cookie unknown"
+                )
+
             rtr = self.session.post(
                 self.BEARER_TOKEN_REFRESH_URL,
                 # Not really needed.
@@ -440,15 +452,20 @@ class api:
                 cookies={"RefreshToken": cookie_refresh_token},
             )
             rtr.raise_for_status()
+
             self.token["access_token"] = rtr.json()["accessToken"].split()[1]
             self.session.access_token = self.token["access_token"]
+
             r = self.session.get(url)
+
+        r.raise_for_status()
 
         return r
 
     def _get_access_token(self, id_token: str) -> tuple[str, str]:
-        # Incorrect, but looks the part for validation.
         LOGGER.debug("retrieving access_token with id_token...")
+
+        # Incorrect, but looks the part for validation.
         self.session.token["access_token"] = id_token
 
         atr = self.session.post(self.BEARER_TOKEN_URL, json={"token": id_token})
