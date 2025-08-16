@@ -27,6 +27,9 @@ __all__ = [
 LOGGER = logging.getLogger(__name__)
 
 
+class AuroraPlusAuthenticationError(Exception):
+    pass
+
 
 class AuroraPlusApi:
     """
@@ -432,10 +435,10 @@ class AuroraPlusApi:
                     access_token, refresh_token_cookie = self._get_access_token(
                         id_token
                     )
-                except HTTPError as exc:
+                except (HTTPError, AuroraPlusAuthenticationError) as exc:
                     # We'll continue, fail, and hopefully get a chance to use the
                     # RefreshToken cookie.
-                    LOGGER.warning(f"can't obtain access_token: {exc}")
+                    LOGGER.warning("can't obtain access_token")
                     pass
                 else:
                     self.token.update(
@@ -453,7 +456,7 @@ class AuroraPlusApi:
             LOGGER.info("access_token refused, refreshing...")
 
             if not (cookie_refresh_token := self.token.get("cookie_RefreshToken")):
-                raise AttributeError(
+                raise AuroraPlusAuthenticationError(
                     "can't refresh access_token: RefreshToken cookie unknown"
                 )
 
