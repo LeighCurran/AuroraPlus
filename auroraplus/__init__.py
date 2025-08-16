@@ -7,6 +7,7 @@ import random
 import string
 import uuid
 import logging
+from warnings import deprecated
 
 from requests import Response
 from requests.adapters import HTTPAdapter
@@ -17,23 +18,24 @@ from .get_token import get_token
 from .repl import repl
 
 __all__ = [
+    "AuroraPlusApi",
     "api",
     "get_token",
     "repl",
-    ]
+]
 
 LOGGER = logging.getLogger(__name__)
 
 
 
-class api:
+class AuroraPlusApi:
     """
     A client to interact with the Aurora+ API.
 
     Obtaining a new OAuth token is done in two steps:
 
         >>> import auroraplus
-        >>> api = auroraplus.api()
+        >>> api = auroraplus.AuroraPlusApi()
         >>> api.oauth_authorize()
         'https://customers.auroraenergy.com.au/...'
 
@@ -485,13 +487,26 @@ class api:
         access_token = atr.json().get("accessToken").split()[1]
 
         if not refresh_token_cookie:
-            raise ValueError(
+            raise AuroraPlusAuthenticationError(
                 f"Missing RefreshToken cookie in {self.BEARER_TOKEN_URL} response"
             )
 
         if not access_token:
-            raise ValueError(
+            raise AuroraPlusAuthenticationError(
                 f"Missing access_token in {self.BEARER_TOKEN_URL} response"
             )
 
         return access_token, refresh_token_cookie
+
+
+@deprecated(
+    "Use of auroraplus.api is deprecated, please use auroraplus.AuroraPlusApi instead"
+)
+class api(AuroraPlusApi):
+    """Backward compatibility adapter."""
+
+    def __init__(self, *args, **kwargs):
+        LOGGER.warning(
+            "Use of auroraplus.api is deprecated, please use auroraplus.AuroraPlusApi instead"
+        )
+        super().__init__(*args, **kwargs)

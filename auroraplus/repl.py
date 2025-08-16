@@ -22,7 +22,7 @@ def repl():
         )
         id_token = get_token()
 
-    api = auroraplus.api(id_token=id_token)
+    api = auroraplus.AuroraPlusApi(id_token=id_token)
     api.get_info()
     sys.ps1 = "AuroraPlus >>> "
     code.interact(

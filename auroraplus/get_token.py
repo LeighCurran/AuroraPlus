@@ -6,7 +6,7 @@ import auroraplus
 
 
 def get_token():
-    api = auroraplus.api()
+    api = auroraplus.AuroraPlusApi()
     url = api.oauth_authorize()
 
     print(
