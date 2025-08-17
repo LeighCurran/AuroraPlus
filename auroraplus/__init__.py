@@ -341,6 +341,7 @@ class AuroraPlusApi:
                 if premise["ServiceAgreementStatus"] == "Active":
                     self.Active = premise["ServiceAgreementStatus"]
                     self.serviceAgreementID = premise["ServiceAgreementID"]
+                    self.premiseAddress = premise["Address"]
             if self.Active != "Active":
                 self.Error = "No active premise found"
         except Timeout:
