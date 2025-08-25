@@ -17,7 +17,7 @@ To do this more programatically, obtaining a token is an interactive process
 where the user needs to log on to the AuroraPlus web application.
 
     >>> import auroraplus
-    >>> api = auroraplus.api()
+    >>> api = auroraplus.AuroraPlusApi()
     >>> api.oauth_authorize()
     'https://customers.auroraenergy.com.au/auroracustomers1p.onmicrosoft.com/b2c_1a_sign_in//oauth2/v2.0/authorize?response_type=code&client_id=2ff9da64-8629-4a92-a4b6-850a3f02053d&redirect_uri=https%3A%2F%2Fmy.auroraenergy.coom.au%2Flogin%2Fredirect&scope=openid+profile+offline_access&state=...&client_info=1'
 

@@ -1,6 +1,4 @@
-from setuptools import setup
 from distutils.core import setup
-from os import path
 
 from pathlib import Path
 this_directory = Path(__file__).parent
