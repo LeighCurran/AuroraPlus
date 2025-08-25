@@ -436,7 +436,7 @@ class AuroraPlusApi:
                     access_token, refresh_token_cookie = self._get_access_token(
                         id_token
                     )
-                except (HTTPError, AuroraPlusAuthenticationError) as exc:
+                except (HTTPError, AuroraPlusAuthenticationError):
                     # We'll continue, fail, and hopefully get a chance to use the
                     # RefreshToken cookie.
                     LOGGER.warning("can't obtain access_token")
