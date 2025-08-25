@@ -36,14 +36,14 @@ authorisation.
 ### Connect to Aurora+ API with a pre-issued token
 
     import auroraplus
-    AuroraPlus = auroraplus.api(token={"access_token": "...", "token_type": "bearer"})
+    AuroraPlus = auroraplus.AuroraPlusApi(token={"access_token": "...", "token_type": "bearer"})
     AuroraPlus.get_info()
 
 For backward compatibility with users of the login/password method, the
 `access_token` can be passed as the `password` if the `user` is empty.
 
     import auroraplus
-    AuroraPlus = auroraplus.api(password=<ACCESS_TOKEN>)
+    AuroraPlus = auroraplus.AuroraPlusApi(password=<ACCESS_TOKEN>)
     AuroraPlus.get_info()
 
 ### Get current account information
@@ -67,7 +67,7 @@ getcurrent() gets the following data:
 An example getting specific data with getcurrent:
 
     import auroraplus
-    AuroraPlus = auroraplus.api(token={"access_token": "...", "token_type": "bearer"})
+    AuroraPlus = auroraplus.AuroraPlusApi(token={"access_token": "...", "token_type": "bearer"})
     AuroraPlus.get_info()
     if (not AuroraPlus.Error):
         AuroraPlus.getcurrent()
@@ -84,7 +84,7 @@ An example getting specific data with getcurrent:
 An example getting specific data with getsummary:
 
     import auroraplus
-    AuroraPlus = auroraplus.api(token={"access_token": "...", "token_type": "bearer"})
+    AuroraPlus = auroraplus.AuroraPlusApi(token={"access_token": "...", "token_type": "bearer"})
     AuroraPlus.get_info()
     if (not AuroraPlus.Error):
         AuroraPlus.getsummary()
@@ -112,7 +112,7 @@ The following returns all available data in json format for each timespan:
 
 Full example:
 
-    AuroraPlus = auroraplus.api(token={"access_token": "...", "token_type": "bearer"})
+    AuroraPlus = auroraplus.AuroraPlusApi(token={"access_token": "...", "token_type": "bearer"})
     AuroraPlus.get_info()
     if (not AuroraPlus.Error):
         AuroraPlus.getcurrent()
