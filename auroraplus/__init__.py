@@ -302,7 +302,7 @@ class AuroraPlusApi:
         Returns:
         --------
 
-        dict: the full token, with additional cookie_RefreshToken attribute.
+        dict: the full token, with additional cookie_RefreshToken attribute, if available..
         """
         rjs = r.json()
         id_token = rjs.get("id_token")
@@ -436,10 +436,10 @@ class AuroraPlusApi:
                     access_token, refresh_token_cookie = self._get_access_token(
                         id_token
                     )
-                except (HTTPError, AuroraPlusAuthenticationError):
+                except (HTTPError, AuroraPlusAuthenticationError) as exc:
                     # We'll continue, fail, and hopefully get a chance to use the
                     # RefreshToken cookie.
-                    LOGGER.warning("can't obtain access_token")
+                    LOGGER.warning(f"can't obtain access_token: {exc}")
                     pass
                 else:
                     self.token.update(
@@ -456,7 +456,7 @@ class AuroraPlusApi:
         if r.status_code in [401, 403]:
             LOGGER.info("access_token refused, refreshing...")
 
-            if not (cookie_refresh_token := self.token.get("cookie_RefreshToken")):
+            if not (refresh_token := self.token.get("cookie_RefreshToken")):
                 raise AuroraPlusAuthenticationError(
                     "can't refresh access_token: RefreshToken cookie unknown"
                 )
@@ -465,11 +465,13 @@ class AuroraPlusApi:
                 self.BEARER_TOKEN_REFRESH_URL,
                 # Not really needed.
                 json={"token": self.token.get("refresh_token")},
-                cookies={"RefreshToken": cookie_refresh_token},
+                cookies={"RefreshToken": refresh_token},
             )
             rtr.raise_for_status()
 
             self.token["access_token"] = rtr.json()["accessToken"].split()[1]
+            if refresh_token := rtr.json()["refreshToken"]:
+                self.token["refresh_token"] = refresh_token
             self.session.access_token = self.token["access_token"]
 
             r = self.session.get(url)
@@ -491,7 +493,7 @@ class AuroraPlusApi:
         access_token = atr.json().get("accessToken").split()[1]
 
         if not refresh_token_cookie:
-            raise AuroraPlusAuthenticationError(
+            _LOGGER.warning(
                 f"Missing RefreshToken cookie in {self.BEARER_TOKEN_URL} response"
             )
 
