@@ -27,10 +27,9 @@ def get_token():
     print("\nThe access token (to use as a bearer token for one-off requests) is\n")
     print(token["access_token"])
 
-    print("\nThe ID token (to use as a bearer token to get what's needed to refresh access_tokens as needed) is\n")
-    print(token["id_token"])
+    print()
 
-    return token["id_token"]
+    return token
 
 
 if __name__ == "__main__":
