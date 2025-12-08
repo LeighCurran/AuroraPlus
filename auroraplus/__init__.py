@@ -486,15 +486,17 @@ class AuroraPlusApi:
         # Incorrect, but looks the part for validation.
         self.session.token["access_token"] = id_token
 
-        atr = self.session.post(self.BEARER_TOKEN_URL, json={"token": id_token})
+        atr = self.session.post(
+            self.BEARER_TOKEN_URL, json={"remember": "True", "token": id_token}
+        )
         atr.raise_for_status()
 
         refresh_token_cookie = atr.cookies.get("RefreshToken")
         access_token = atr.json().get("accessToken").split()[1]
 
         if not refresh_token_cookie:
-            _LOGGER.warning(
-                f"Missing RefreshToken cookie in {self.BEARER_TOKEN_URL} response"
+            LOGGER.warning(
+                f"Missing RefreshToken cookie in {self.BEARER_TOKEN_URL} response; did you check `Keep me logged in` on the aurora+ login page?"
             )
 
         if not access_token:
