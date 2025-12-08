@@ -12,6 +12,9 @@ def get_token():
     print(
         "Please visit the following URL in a browser, "
         "and follow the login prompts ...\n"
+        "\n"
+        "Make sure to check `Keep me logged in` "
+        "to obtain a long-lived refresh token.\n"
     )
     print(url)
 
