@@ -521,21 +521,29 @@ class AuroraPlusApi:
                 "neither access_token nor RefreshToken cookie known; "
                 + "skipping tokens update"
             )
+
+        new_token = {}
         if access_token:
             LOGGER.debug(f"updating token: {access_token=} {refresh_token_cookie=}")
-            self.token.update(
+            self.session.access_token = access_token
+            new_token.update(
                 {
                     "access_token": access_token,
-                    "cookie_RefreshToken": refresh_token_cookie,
                     "token_type": "bearer",
                 }
             )
-            self.session.access_token = access_token
         if refresh_token_cookie:
             LOGGER.debug("updating RefreshToken in session")
             self.session.cookies.set(
                 "RefreshToken", refresh_token_cookie, domain=self.COOKIE_DOMAIN
             )
+            new_token.update(
+                {
+                    "cookie_RefreshToken": refresh_token_cookie,
+                }
+            )
+        self.token.update(new_token)
+        self.session.token = self.token
 
 
 @deprecated(
