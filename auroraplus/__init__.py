@@ -78,7 +78,7 @@ class AuroraPlusApi:
     API_URL = "https://api.auroraenergy.com.au/api"
     BEARER_TOKEN_URL = API_URL + "/identity/LoginToken"
     BEARER_TOKEN_REFRESH_URL = API_URL + "/identity/refreshToken"
-    COOKIE_DOMAIN = ".api.auroraenergy.com.au"
+    COOKIE_DOMAIN = "api.auroraenergy.com.au"
 
     SCOPE = ["openid", "profile", "offline_access"]
 
@@ -519,23 +519,32 @@ class AuroraPlusApi:
         if not access_token and not refresh_token_cookie:
             LOGGER.warning(
                 "neither access_token nor RefreshToken cookie known; "
-                + "skipping tokens update"
+                + "skipping session tokens update"
             )
+            return
+
+        new_token = {}
         if access_token:
-            LOGGER.debug(f"updating token: {access_token=} {refresh_token_cookie=}")
-            self.token.update(
+            LOGGER.debug(f"updating token in session: {access_token=}")
+            self.session.access_token = access_token
+            new_token.update(
                 {
                     "access_token": access_token,
-                    "cookie_RefreshToken": refresh_token_cookie,
                     "token_type": "bearer",
                 }
             )
-            self.session.access_token = access_token
         if refresh_token_cookie:
-            LOGGER.debug("updating RefreshToken in session")
+            LOGGER.debug("updating RefreshToken in session: {refresh_token_cookie=}")
             self.session.cookies.set(
                 "RefreshToken", refresh_token_cookie, domain=self.COOKIE_DOMAIN
             )
+            new_token.update(
+                {
+                    "cookie_RefreshToken": refresh_token_cookie,
+                }
+            )
+        self.token.update(new_token)
+        self.session.token = self.token
 
 
 @deprecated(
