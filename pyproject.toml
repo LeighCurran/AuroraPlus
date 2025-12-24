@@ -13,9 +13,9 @@ authors = [
 keywords = ['Aurora+', 'AuroraPlus', 'Aurora', 'Tasmania', 'API']
 requires-python = ">=3.9"
 dependencies = [
-  'brotli',
-  'requests',
-  'requests_oauthlib',
+	'brotli',
+	'requests',
+	'requests_oauthlib',
 ]
 classifiers = [
   'Development Status :: 3 - Alpha',      # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
@@ -36,6 +36,7 @@ build = [ 'build<0.10.0' ]
 test = [
 	'pytest',
 	'pytest-ruff',
+	'requests-mock',
 ]
 
 [project.scripts]
