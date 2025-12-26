@@ -30,6 +30,28 @@ def api(token: dict) -> AuroraPlusApi:
 
 
 @pytest.fixture
+def LoginToken_response() -> str:
+    return dedent("""
+{
+    "accessToken": "bearer accessToken-from-LoginToken",
+    "refreshToken": null,
+    "tokenType": "bearer"
+}
+    """)
+
+
+@pytest.fixture
+def RefreshToken_response() -> str:
+    return dedent("""
+{
+    "accessToken": "bearer accessToken-from-RefreshToken",
+    "refreshToken": null,
+    "tokenType": "bearer"
+}
+    """)
+
+
+@pytest.fixture
 def current_response() -> str:
     return dedent("""
         [
@@ -763,31 +785,169 @@ def usage_week_response() -> str:
 
 
 @pytest.fixture
+def mock_oauth_request(
+    LoginToken_callback: Callable,
+):
+    m = requests_mock.Mocker()
+
+    def oauth_token_callback(request: Request, context) -> str:
+        # params = parse_qs(request.body)
+
+        return '{"id_token": "id_token-from-oauth-token"}'
+
+    m.post(
+        "https://customers.auroraenergy.com.au/auroracustomers1p.onmicrosoft.com/b2c_1a_sign_in/oauth2/v2.0/token",
+        text=oauth_token_callback,
+    )
+
+    m.post(
+        _aurora_url("identity/LoginToken"),
+        text=LoginToken_callback,
+        cookies={
+            "RefreshToken": "refreshTokenCookie-from-LoginToken",
+        },
+    )
+
+    return m
+
+
+@pytest.fixture
 def mock_api_request(
     current_response: str,
     premises_response: str,
     usage_day_response: str,
     usage_week_response: str,
+    LoginToken_response: str,
+    RefreshToken_response: str,
+    LoginToken_callback: Callable,
 ) -> requests_mock.Mocker:
     m = requests_mock.Mocker()
 
-    m.get(_aurora_url("customers/current"), text=current_response)
-    # m.get(_aurora_url("customers/current"), text=current_response)
-    m.get(_aurora_url("customers/premises"), text=premises_response)
+    m.post(
+        _aurora_url("identity/LoginToken"),
+        text=LoginToken_callback,
+        cookies={
+            "RefreshToken": "refreshTokenCookie-from-LoginToken",
+        },
+    )
+
+    def RefreshToken_callback(request: Request, context) -> str:
+        RefreshToken_cookie = _get_RefreshToken_cookie(request)
+
+        if RefreshToken_cookie is None:
+            context.status_code = 401
+            context.reason = "missing RefreshCookie in request to RefreshToken"
+            return (
+                '{"Message": "missing RefreshToken cookie from test", "from_test": "'
+                + context.reason
+                + '"}'
+            )
+
+        if not RefreshToken_cookie.startswith("refreshToken"):
+            context.status_code = 401
+            context.reason = f"invalid RefreshCookie in request to RefreshToken {RefreshToken_cookie=}"
+            return (
+                '{"Message": "invalid refresh token token", "from_test": "'
+                + context.reason
+                + '"}'
+            )
+        return RefreshToken_response
+
+    m.post(
+        _aurora_url("identity/RefreshToken"),
+        text=RefreshToken_callback,
+        cookies={
+            "RefreshToken": "refreshTokenCookie-from-RefreshToken",
+        },
+    )
+
+    m.get(_aurora_url("customers/current"), text=_require_auth(current_response))
+    m.get(_aurora_url("customers/premises"), text=_require_auth(premises_response))
 
     m.get(
         _aurora_url(
-            "usage/day?serviceAgreementID=100100010&customerId=100100001&index=-1"
+            f"usage/day?serviceAgreementID={SERVICE_AGREEMENT_ID}&customerId={CUSTOMER_ID}&index=-1"
         ),
-        text=usage_day_response,
+        text=_require_auth(usage_day_response),
     )
     m.get(
         _aurora_url(
-            "usage/week?serviceAgreementID=100100010&customerId=100100001&index=-1"
+            f"usage/week?serviceAgreementID={SERVICE_AGREEMENT_ID}&customerId={CUSTOMER_ID}&index=-1"
         ),
-        text=usage_week_response,
+        text=_require_auth(usage_week_response),
     )
 
     return m
+
+
+@pytest.fixture
+def LoginToken_callback(LoginToken_response):
+    def callback(request: Request, context) -> str:
+        if not request.json:
+            context.status_code = 400
+            context.reason = "missing body in request to LoginToken"
+            return (
+                '{"Message": "missing body (test)", "from_test": "'
+                + context.reason
+                + '"}'
+            )
+
+        if not (id_token := request.json().get("token")).startswith("id_token"):
+            context.status_code = 401
+            context.reason = (
+                f"missing or invalid id_token in request to LoginToken: {id_token=}"
+            )
+            return '{"Message": "Invalid token", "from_test": "' + context.reason + '"}'
+
+        return LoginToken_response
+
+    return callback
+
+
+def _get_RefreshToken_cookie(request) -> str | None:
+    cookies = dict(request.headers.lower_items()).get("cookie")
+
+    if not cookies:
+        return None
+
+    # jar = dict(cookies.split().map(lambda s: s.split("=")))
+    # return jar.get("RefreshToken")
+
+    # XXX: How would this work with more than one cookie?
+    return cookies.split("=")[1]
+
+
 def _aurora_url(endpoint: str) -> str:
     return AuroraPlusApi.API_URL + "/" + endpoint
+
+
+def _require_auth(response: str) -> Callable:
+    def wrapper(request: Request, context) -> str:
+        bearer_token = _get_bearer_token(request)
+
+        if bearer_token is None:
+            context.status_code = 401
+            context.reason = "missing authorization header"
+            return (
+                '{"Message": "missing auth from test", "from_test": "'
+                + context.reason
+                + '"}'
+            )
+
+        if not bearer_token.startswith("accessToken"):
+            context.status_code = 401
+            context.reason = f"invalid authorization header {bearer_token=}"
+            return '{"Message": "Invalid token", "from_test": "' + context.reason + '"}'
+
+        return response
+
+    return wrapper
+
+
+def _get_bearer_token(request) -> str | None:
+    auth = dict(request.headers.lower_items()).get("authorization")
+
+    if not auth:
+        return None
+
+    return auth.split()[1]
