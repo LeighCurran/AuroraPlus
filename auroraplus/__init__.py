@@ -68,7 +68,7 @@ class AuroraPlusApi:
 
     OAUTH_BASE_URL = (
         "https://customers.auroraenergy.com.au"
-        "/auroracustomers1p.onmicrosoft.com/b2c_1a_sign_in/"
+        "/auroracustomers1p.onmicrosoft.com/b2c_1a_sign_in"
     )
     AUTHORIZE_URL = OAUTH_BASE_URL + "/oauth2/v2.0/authorize"
     TOKEN_URL = OAUTH_BASE_URL + "/oauth2/v2.0/token"
