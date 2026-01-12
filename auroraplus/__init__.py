@@ -78,6 +78,7 @@ class AuroraPlusApi:
     API_URL = "https://api.auroraenergy.com.au/api"
     BEARER_TOKEN_URL = API_URL + "/identity/LoginToken"
     BEARER_TOKEN_REFRESH_URL = API_URL + "/identity/refreshToken"
+    COOKIE_DOMAIN = ".api.auroraenergy.com.au"
 
     SCOPE = ["openid", "profile", "offline_access"]
 
@@ -193,6 +194,8 @@ class AuroraPlusApi:
         )
         self.session = session
 
+        self._update_tokens(token.get("access_token"), token.get("cookie_RefreshToken"))
+
         if backward_compat and self.token:
             self.get_info()
 
@@ -302,7 +305,7 @@ class AuroraPlusApi:
         Returns:
         --------
 
-        dict: the full token, with additional cookie_RefreshToken attribute.
+        dict: the full token, with additional cookie_RefreshToken attribute, if available..
         """
         rjs = r.json()
         id_token = rjs.get("id_token")
@@ -436,41 +439,35 @@ class AuroraPlusApi:
                     access_token, refresh_token_cookie = self._get_access_token(
                         id_token
                     )
-                except (HTTPError, AuroraPlusAuthenticationError):
+                except (HTTPError, AuroraPlusAuthenticationError) as exc:
                     # We'll continue, fail, and hopefully get a chance to use the
                     # RefreshToken cookie.
-                    LOGGER.warning("can't obtain access_token")
+                    LOGGER.warning(f"can't obtain access_token: {exc}")
                     pass
                 else:
-                    self.token.update(
-                        {
-                            "access_token": access_token,
-                            "cookie_RefreshToken": refresh_token_cookie,
-                            "token_type": "bearer",
-                        }
-                    )
-                    self.session.access_token = access_token
+                    self._update_tokens(access_token, refresh_token_cookie)
 
         r = self.session.get(url)
 
         if r.status_code in [401, 403]:
             LOGGER.info("access_token refused, refreshing...")
 
-            if not (cookie_refresh_token := self.token.get("cookie_RefreshToken")):
+            if not (refresh_token := self.token.get("cookie_RefreshToken")):
                 raise AuroraPlusAuthenticationError(
                     "can't refresh access_token: RefreshToken cookie unknown"
                 )
 
-            rtr = self.session.post(
-                self.BEARER_TOKEN_REFRESH_URL,
-                # Not really needed.
-                json={"token": self.token.get("refresh_token")},
-                cookies={"RefreshToken": cookie_refresh_token},
-            )
-            rtr.raise_for_status()
-
-            self.token["access_token"] = rtr.json()["accessToken"].split()[1]
-            self.session.access_token = self.token["access_token"]
+            try:
+                access_token, refresh_token_cookie = self._refresh_access_token(
+                    refresh_token
+                )
+            except (HTTPError, AuroraPlusAuthenticationError) as exc:
+                # We'll continue, fail, and hopefully get a chance to use the
+                # RefreshToken cookie.
+                LOGGER.warning(f"can't obtain RefreshToken cookie: {exc}")
+                pass
+            else:
+                self._update_tokens(access_token, refresh_token_cookie)
 
             r = self.session.get(url)
 
@@ -478,29 +475,75 @@ class AuroraPlusApi:
 
         return r
 
-    def _get_access_token(self, id_token: str) -> tuple[str, str]:
+    def _get_access_token(self, id_token: str) -> tuple[str, str | None]:
         LOGGER.debug("retrieving access_token with id_token...")
 
         # Incorrect, but looks the part for validation.
         self.session.token["access_token"] = id_token
 
-        atr = self.session.post(self.BEARER_TOKEN_URL, json={"token": id_token})
+        atr = self.session.post(
+            self.BEARER_TOKEN_URL, json={"remember": "True", "token": id_token}
+        )
         atr.raise_for_status()
 
-        refresh_token_cookie = atr.cookies.get("RefreshToken")
-        access_token = atr.json().get("accessToken").split()[1]
+        return self._extract_access_refresh_token(atr)
 
+    def _refresh_access_token(self, refresh_token: str) -> tuple[str, str | None]:
+        LOGGER.debug("refreshing access_token with RefreshToken cookie...")
+
+        rtr = self.session.post(self.BEARER_TOKEN_REFRESH_URL, json={})
+        rtr.raise_for_status()
+
+        return self._extract_access_refresh_token(rtr)
+
+    def _extract_access_refresh_token(
+        self, response: Response
+    ) -> tuple[str, str | None]:
+        refresh_token_cookie = response.cookies.get("RefreshToken")
         if not refresh_token_cookie:
-            raise AuroraPlusAuthenticationError(
-                f"Missing RefreshToken cookie in {self.BEARER_TOKEN_URL} response"
+            LOGGER.warning(
+                f"Missing RefreshToken cookie in {self.BEARER_TOKEN_URL} response; did you check `Keep me logged in` on the aurora+ login page?"
             )
 
+        access_token = response.json().get("accessToken").split()[1]
         if not access_token:
             raise AuroraPlusAuthenticationError(
                 f"Missing access_token in {self.BEARER_TOKEN_URL} response"
             )
 
         return access_token, refresh_token_cookie
+
+    def _update_tokens(
+        self, access_token: str | None, refresh_token_cookie: str | None
+    ):
+        if not access_token and not refresh_token_cookie:
+            LOGGER.warning(
+                "neither access_token nor RefreshToken cookie known; "
+                + "skipping tokens update"
+            )
+
+        new_token = {}
+        if access_token:
+            LOGGER.debug(f"updating token: {access_token=} {refresh_token_cookie=}")
+            self.session.access_token = access_token
+            new_token.update(
+                {
+                    "access_token": access_token,
+                    "token_type": "bearer",
+                }
+            )
+        if refresh_token_cookie:
+            LOGGER.debug("updating RefreshToken in session")
+            self.session.cookies.set(
+                "RefreshToken", refresh_token_cookie, domain=self.COOKIE_DOMAIN
+            )
+            new_token.update(
+                {
+                    "cookie_RefreshToken": refresh_token_cookie,
+                }
+            )
+        self.token.update(new_token)
+        self.session.token = self.token
 
 
 @deprecated(

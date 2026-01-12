@@ -12,6 +12,9 @@ def get_token():
     print(
         "Please visit the following URL in a browser, "
         "and follow the login prompts ...\n"
+        "\n"
+        "Make sure to check `Keep me logged in` "
+        "to obtain a long-lived refresh token.\n"
     )
     print(url)
 
@@ -27,10 +30,9 @@ def get_token():
     print("\nThe access token (to use as a bearer token for one-off requests) is\n")
     print(token["access_token"])
 
-    print("\nThe ID token (to use as a bearer token to get what's needed to refresh access_tokens as needed) is\n")
-    print(token["id_token"])
+    print()
 
-    return token["id_token"]
+    return token
 
 
 if __name__ == "__main__":

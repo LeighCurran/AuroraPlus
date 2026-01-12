@@ -33,11 +33,11 @@ def repl():
         logger.info(
             f"All of {AURORAPLUS_TOKEN}, {AURORAPLUS_ID_TOKEN} and {AURORAPLUS_ACCESS_TOKEN} environment variables are empty, requesting interactively ..."
         )
-        id_token = get_token()
+        token = get_token()
 
     try:
         api = auroraplus.AuroraPlusApi(
-            token=token, id_token=id_token, access_token=access_token
+            token=token
         )
         api.get_info()
     except Exception as exc:
