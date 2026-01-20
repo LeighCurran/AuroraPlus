@@ -41,6 +41,7 @@ test = [
 
 [project.scripts]
 auroraplus_get_token = "auroraplus:get_token"
+auroraplus_repl = "auroraplus.repl:repl"
 
 [tool.setuptools]
 include-package-data = false
