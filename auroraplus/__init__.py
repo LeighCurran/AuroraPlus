@@ -476,7 +476,7 @@ class AuroraPlusApi:
         return r
 
     def _get_access_token(self, id_token: str) -> tuple[str, str | None]:
-        LOGGER.debug("retrieving access_token with id_token...")
+        LOGGER.debug(f"retrieving access_token with {id_token=}...")
 
         # Incorrect, but looks the part for validation.
         self.session.token["access_token"] = id_token
@@ -489,7 +489,7 @@ class AuroraPlusApi:
         return self._extract_access_refresh_token(atr)
 
     def _refresh_access_token(self, refresh_token: str) -> tuple[str, str | None]:
-        LOGGER.debug("refreshing access_token with RefreshToken cookie...")
+        LOGGER.debug(f"refreshing access_token with cookie {refresh_token=}...")
 
         rtr = self.session.post(self.BEARER_TOKEN_REFRESH_URL, json={})
         rtr.raise_for_status()
@@ -534,7 +534,7 @@ class AuroraPlusApi:
                 }
             )
         if refresh_token_cookie:
-            LOGGER.debug("updating RefreshToken in session: {refresh_token_cookie=}")
+            LOGGER.debug(f"updating RefreshToken in session: {refresh_token_cookie=}")
             self.session.cookies.set(
                 "RefreshToken", refresh_token_cookie, domain=self.COOKIE_DOMAIN
             )
