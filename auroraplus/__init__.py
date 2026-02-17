@@ -5,6 +5,7 @@ import hashlib
 import json
 import random
 import string
+from typing import Any, TypeAlias
 import uuid
 import logging
 from warnings import deprecated
@@ -23,6 +24,8 @@ __all__ = [
     "get_token",
     "repl",
 ]
+
+AuroraPlusToken: TypeAlias = dict[str, Any]
 
 LOGGER = logging.getLogger(__name__)
 
@@ -64,33 +67,61 @@ class AuroraPlusApi:
 
     """
 
-    USER_AGENT = "python/auroraplus"
+    USER_AGENT: str = "python/auroraplus"
 
-    OAUTH_BASE_URL = (
+    OAUTH_BASE_URL: str = (
         "https://customers.auroraenergy.com.au"
         "/auroracustomers1p.onmicrosoft.com/b2c_1a_sign_in"
     )
-    AUTHORIZE_URL = OAUTH_BASE_URL + "/oauth2/v2.0/authorize"
-    TOKEN_URL = OAUTH_BASE_URL + "/oauth2/v2.0/token"
-    CLIENT_ID = "2ff9da64-8629-4a92-a4b6-850a3f02053d"
-    REDIRECT_URI = "https://my.auroraenergy.com.au/login/redirect"
+    AUTHORIZE_URL: str = OAUTH_BASE_URL + "/oauth2/v2.0/authorize"
+    TOKEN_URL: str = OAUTH_BASE_URL + "/oauth2/v2.0/token"
+    CLIENT_ID: str = "2ff9da64-8629-4a92-a4b6-850a3f02053d"
+    REDIRECT_URI: str = "https://my.auroraenergy.com.au/login/redirect"
 
-    API_URL = "https://api.auroraenergy.com.au/api"
-    BEARER_TOKEN_URL = API_URL + "/identity/LoginToken"
-    BEARER_TOKEN_REFRESH_URL = API_URL + "/identity/refreshToken"
-    COOKIE_DOMAIN = "api.auroraenergy.com.au"
+    API_URL: str = "https://api.auroraenergy.com.au/api"
+    BEARER_TOKEN_URL: str = API_URL + "/identity/LoginToken"
+    BEARER_TOKEN_REFRESH_URL: str = API_URL + "/identity/refreshToken"
+    COOKIE_DOMAIN: str = "api.auroraenergy.com.au"
 
-    SCOPE = ["openid", "profile", "offline_access"]
+    SCOPE: list[str] = ["openid", "profile", "offline_access"]
 
     session: OAuth2Session
-    token: dict
+    token: AuroraPlusToken
+
+    Error: str | None = None
+
+    Active: str = ""
+    customerId: str = ""
+    premiseAddress: str = ""
+    serviceAgreementID: str = ""
+
+    day: dict[str, Any] | None = None
+    week: dict[str, Any] | None = None
+    month: dict[str, Any] | None = None
+    quarter: dict[str, Any] | None = None
+    year: dict[str, Any] | None = None
+
+    DollarValueUsage: float | None = None
+    KilowattHourUsage: float | None = None
+    AmountOwed: str = ""
+    EstimatedBalance: str = ""
+    AverageDailyUsage: str = ""
+    UsageDaysRemaining: str = ""
+    ActualBalance: str = ""
+    UnbilledAmount: str = ""
+    BillTotalAmount: str = ""
+    NumberOfUnpaidBills: str = ""
+    BillOverDueAmount: str = ""
+
+    _code_verifier: str = ""
+    _authorization_url: str = ""
 
     def __init__(
         self,
         username: str | None = None,
         password: str | None = None,
         *,
-        token: dict | None = None,
+        token: AuroraPlusToken | None = None,
         id_token: str | None = None,
         access_token: str | None = None,
     ):
@@ -129,7 +160,7 @@ class AuroraPlusApi:
             `username` and no `token`, the `password` will be used as a bearer
             `access_token`.
 
-        token : dict
+        token : AuroraPlusToken
 
             A pre-established token. For one-off use, it should contain at least an
             `access_token` and a `token_type`. For use over 24h, the `RefreshToken`,
@@ -214,17 +245,17 @@ class AuroraPlusApi:
             "meta": {"interactionType": "redirect"},
         }
 
-        self.code_verifier = "".join(
+        self._code_verifier = "".join(
             [
                 random.choice(string.ascii_letters + string.digits + "-_")
                 for _ in range(43)
             ]
         )
         code_challenge = base64.urlsafe_b64encode(
-            hashlib.sha256(self.code_verifier.encode()).digest()
+            hashlib.sha256(self._code_verifier.encode()).digest()
         ).strip(b"=")
 
-        self.authorization_url, _ = self.session.authorization_url(
+        self._authorization_url, _ = self.session.authorization_url(
             self.AUTHORIZE_URL,
             client_request_id=uuid.uuid4(),
             client_info=1,
@@ -233,7 +264,7 @@ class AuroraPlusApi:
             state=base64.encodebytes(json.dumps(state).encode()),
         )
 
-        return self.authorization_url
+        return self._authorization_url
 
     def oauth_redirect(self, authorization_response: str):
         """
@@ -262,10 +293,10 @@ class AuroraPlusApi:
         return self.session.fetch_token(
             self.TOKEN_URL,
             authorization_response=authorization_response,
-            code_verifier=self.code_verifier,
+            code_verifier=self._code_verifier,
         )
 
-    def oauth_dump(self) -> dict:
+    def oauth_dump(self) -> dict[str, str]:
         """
         Export partial OAuth state, for use in asynchronous or request/response-based
         workflows.
@@ -276,8 +307,8 @@ class AuroraPlusApi:
         dict: a dict of all the relevant state
         """
         return {
-            "authorization_url": self.authorization_url,
-            "code_verifier": self.code_verifier,
+            "authorization_url": self._authorization_url,
+            "code_verifier": self._code_verifier,
         }
 
     def oauth_load(
@@ -293,10 +324,10 @@ class AuroraPlusApi:
 
         kwargs: pass the state dict returned from oauth_dump.
         """
-        self.authorization_url = authorization_url
-        self.code_verifier = code_verifier
+        self._authorization_url = authorization_url
+        self._code_verifier = code_verifier
 
-    def _include_access_token(self, r) -> Response:
+    def _include_access_token(self, r: Response) -> Response:
         """
         OAuth compliance hook to fetch the bespoke LoginToken,
         and present it as a standard access_token, as well as the value of the
@@ -305,10 +336,13 @@ class AuroraPlusApi:
         Returns:
         --------
 
-        dict: the full token, with additional cookie_RefreshToken attribute, if available..
+        Response: the original respones, with the full token, and additional
+        cookie_RefreshToken attribute, if available..
+
+        Response
         """
-        rjs = r.json()
-        id_token = rjs.get("id_token")
+        rjs: dict[str, Any] = r.json()
+        id_token: str | None = rjs.get("id_token")
 
         access_token, refresh_token_cookie = self._get_access_token(id_token)
 
@@ -324,9 +358,11 @@ class AuroraPlusApi:
 
         return r
 
-    def gettoken(self, username=None, password=None):
+    def gettoken(self, *args, **kwargs):
         """
         Deprecated, kept for backward compatibility
+
+        args and kwargs are to catch obsolete arguments.
         """
         self.get_info()
 
@@ -335,11 +371,11 @@ class AuroraPlusApi:
         try:
             r = self._fetch(self.API_URL + "/customers/current")
             r.raise_for_status()
-            current = r.json()[0]
+            current: dict[str, Any] = r.json()[0]
             self.customerId = current["CustomerID"]
 
             """Loop through premises to get active """
-            premises = current["Premises"]
+            premises: dict[str, Any] = current["Premises"]
             for premise in premises:
                 if premise["ServiceAgreementStatus"] == "Active":
                     self.Active = premise["ServiceAgreementStatus"]
@@ -350,11 +386,11 @@ class AuroraPlusApi:
         except Timeout:
             self.Error = "Info request timed out"
 
-    def request(self, timespan, index=-1):
+    def request(self, timespan: str, index: int = -1) -> dict[str, Any]:
         if not hasattr(self, "serviceAgreementID") or not self.serviceAgreementID:
             self.get_info()
         try:
-            request = self._fetch(
+            resp = self._fetch(
                 self.API_URL
                 + "/usage/"
                 + timespan
@@ -365,31 +401,31 @@ class AuroraPlusApi:
                 + "&index="
                 + str(index)
             )
-            if request.status_code == 200:
-                return request.json()
+            if resp.status_code == 200:
+                return resp.json()
             else:
-                self.Error = "Data request failed: " + request.reason
+                self.Error = "Data request failed: " + resp.reason
         except Timeout:
             self.Error = "Data request timed out"
 
-    def getsummary(self, index=-1):
+    def getsummary(self, index: int = -1):
         summarydata = self.request("day", index)
         self.DollarValueUsage = summarydata["SummaryTotals"]["DollarValueUsage"]
         self.KilowattHourUsage = summarydata["SummaryTotals"]["KilowattHourUsage"]
 
-    def getday(self, index=-1):
+    def getday(self, index: int = -1):
         self.day = self.request("day", index)
 
-    def getweek(self, index=-1):
+    def getweek(self, index: int = -1):
         self.week = self.request("week", index)
 
-    def getmonth(self, index=-1):
+    def getmonth(self, index: int = -1):
         self.month = self.request("month", index)
 
-    def getquarter(self, index=-1):
+    def getquarter(self, index: int = -1):
         self.quarter = self.request("quarter", index)
 
-    def getyear(self, index=-1):
+    def getyear(self, index: int = -1):
         self.year = self.request("year", index)
 
     def getcurrent(self):
@@ -398,10 +434,10 @@ class AuroraPlusApi:
             current = self._fetch(self.API_URL + "/customers/current")
 
             if current.status_code == 200:
-                currentjson = current.json()[0]
+                currentjson: dict[str, Any] = current.json()[0]
 
                 """Loop through premises to match serviceAgreementID already found in token request"""
-                premises = currentjson["Premises"]
+                premises: dict[str, Any] = currentjson["Premises"]
                 found = ""
                 for premise in premises:
                     if premise["ServiceAgreementID"] == self.serviceAgreementID:
@@ -505,7 +541,7 @@ class AuroraPlusApi:
                 f"Missing RefreshToken cookie in {self.BEARER_TOKEN_URL} response; did you check `Keep me logged in` on the aurora+ login page?"
             )
 
-        access_token = response.json().get("accessToken").split()[1]
+        access_token: str = response.json().get("accessToken").split()[1]
         if not access_token:
             raise AuroraPlusAuthenticationError(
                 f"Missing access_token in {self.BEARER_TOKEN_URL} response"
