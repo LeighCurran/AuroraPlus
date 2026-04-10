@@ -54,4 +54,60 @@ def test_id_token(mock_api_request: requests_mock.Mocker):
         )
 
         assert api.token.get("access_token") == "accessToken-from-LoginToken"
+        assert (
+            api.token.get("cookie_RefreshToken") == "refreshTokenCookie-from-LoginToken"
+        )
+
         assert api.session.token.get("access_token") == "accessToken-from-LoginToken"
+        assert (
+            api.session.token.get("cookie_RefreshToken")
+            == "refreshTokenCookie-from-LoginToken"
+        )
+        assert (
+            api.session.cookies.get("RefreshToken")
+            == "refreshTokenCookie-from-LoginToken"
+        )
+
+
+def test_refresh_token(mock_api_request: requests_mock.Mocker):
+    api = AuroraPlusApi(
+        token={
+            "access_token": "invalid",
+            "cookie_RefreshToken": "refreshTokenCookie-from-init",
+        }
+    )
+
+    with mock_api_request as m:
+        api.get_info()
+
+        assert (
+            m.request_history[0].url
+            == "https://api.auroraenergy.com.au/api/customers/current"
+        )
+
+        assert (
+            m.request_history[1].url
+            == "https://api.auroraenergy.com.au/api/identity/refreshToken"
+        )
+
+        assert (
+            m.request_history[2].url
+            == "https://api.auroraenergy.com.au/api/customers/current"
+        )
+
+        assert api.token.get("access_token") == "accessToken-from-RefreshToken"
+        assert (
+            api.token.get("cookie_RefreshToken")
+            == "refreshTokenCookie-from-RefreshToken"
+        )
+
+        assert api.session.token.get("access_token") == "accessToken-from-RefreshToken"
+        assert (
+            api.session.token.get("cookie_RefreshToken")
+            == "refreshTokenCookie-from-RefreshToken"
+        )
+
+        assert (
+            api.session.cookies.get("RefreshToken")
+            == "refreshTokenCookie-from-RefreshToken"
+        )
