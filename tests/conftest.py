@@ -785,6 +785,101 @@ def usage_week_response() -> str:
 
 
 @pytest.fixture
+def powerhour_response() -> str:
+    return dedent("""
+    [
+        {
+            "EventName": "Merry and Bright with Free Light ",
+            "PowerHourEventId": 66,
+            "StartDateTime": "2025-11-25T10:06:59",
+            "OfferExpiryDateTime": "2025-12-28T14:55:00",
+            "TimeslotAccepted": {
+                "PowerHourTimeSlotId": 637,
+                "StartDateTime": "2025-12-24T15:00:00",
+                "EndDateTime": "2025-12-24T20:00:00",
+                "ExpiryDateTime": "2025-12-24T14:55:00"
+            },
+            "TimeslotAll": [
+                {
+                    "PowerHourTimeSlotId": 632,
+                    "StartDateTime": "2025-12-24T10:00:00",
+                    "EndDateTime": "2025-12-24T15:00:00",
+                    "ExpiryDateTime": "2025-12-24T09:55:00"
+                },
+                {
+                    "PowerHourTimeSlotId": 633,
+                    "StartDateTime": "2025-12-25T10:00:00",
+                    "EndDateTime": "2025-12-25T15:00:00",
+                    "ExpiryDateTime": "2025-12-25T09:55:00"
+                },
+                {
+                    "PowerHourTimeSlotId": 634,
+                    "StartDateTime": "2025-12-26T10:00:00",
+                    "EndDateTime": "2025-12-26T15:00:00",
+                    "ExpiryDateTime": "2025-12-26T09:55:00"
+                },
+                {
+                    "PowerHourTimeSlotId": 635,
+                    "StartDateTime": "2025-12-27T10:00:00",
+                    "EndDateTime": "2025-12-27T15:00:00",
+                    "ExpiryDateTime": "2025-12-27T09:55:00"
+                },
+                {
+                    "PowerHourTimeSlotId": 636,
+                    "StartDateTime": "2025-12-28T10:00:00",
+                    "EndDateTime": "2025-12-28T15:00:00",
+                    "ExpiryDateTime": "2025-12-28T09:55:00"
+                },
+                {
+                    "PowerHourTimeSlotId": 637,
+                    "StartDateTime": "2025-12-24T15:00:00",
+                    "EndDateTime": "2025-12-24T20:00:00",
+                    "ExpiryDateTime": "2025-12-24T14:55:00"
+                },
+                {
+                    "PowerHourTimeSlotId": 638,
+                    "StartDateTime": "2025-12-25T15:00:00",
+                    "EndDateTime": "2025-12-25T20:00:00",
+                    "ExpiryDateTime": "2025-12-25T14:55:00"
+                },
+                {
+                    "PowerHourTimeSlotId": 639,
+                    "StartDateTime": "2025-12-26T15:00:00",
+                    "EndDateTime": "2025-12-26T20:00:00",
+                    "ExpiryDateTime": "2025-12-26T14:55:00"
+                },
+                {
+                    "PowerHourTimeSlotId": 640,
+                    "StartDateTime": "2025-12-27T15:00:00",
+                    "EndDateTime": "2025-12-27T20:00:00",
+                    "ExpiryDateTime": "2025-12-27T14:55:00"
+                },
+                {
+                    "PowerHourTimeSlotId": 641,
+                    "StartDateTime": "2025-12-28T15:00:00",
+                    "EndDateTime": "2025-12-28T20:00:00",
+                    "ExpiryDateTime": "2025-12-28T14:55:00"
+                }
+            ],
+            "Customer": {
+                "AccountId": "100100010",
+                "Nmi": "8000000100",
+                "Usage": null,
+                "Cost": null,
+                "CalculatedDateTime": null,
+                "ExportedDateTime": null,
+                "AcceptedDateTime": null,
+                "SPID": null,
+                "Tariff": null,
+                "DataQuality": null,
+                "IsFlagged": false
+            }
+        }
+    ]
+    """)
+
+
+@pytest.fixture
 def mock_oauth_request(
     LoginToken_callback: Callable,
 ):
@@ -817,6 +912,7 @@ def mock_api_request(
     premises_response: str,
     usage_day_response: str,
     usage_week_response: str,
+    powerhour_response: str,
     LoginToken_response: str,
     RefreshToken_response: str,
     LoginToken_callback: Callable,
@@ -875,6 +971,10 @@ def mock_api_request(
             f"usage/week?serviceAgreementID={SERVICE_AGREEMENT_ID}&customerId={CUSTOMER_ID}&index=-1"
         ),
         text=_require_auth(usage_week_response),
+    )
+
+    m.get(
+        _aurora_url("powerhour/upcoming-active"), text=_require_auth(powerhour_response)
     )
 
     return m

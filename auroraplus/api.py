@@ -55,6 +55,12 @@ class AuroraPlusApi:
         >>> api.day
         {'StartDate': '2023-12-25T13:00:00Z', 'EndDate': '2023-12-26T13:00:00Z', 'TimeMeasureCount': 1, ...
 
+    Power Hour data can be obtained in a similar fashion
+
+        >>> api.getpowerhour()
+        >>> api.powerhour
+        [{'EventName': 'April Flash Event', 'PowerHourEventId': 92, 'StartDateTime': '2026-04-09T08:55:47', 'OfferExpiryDateTime': '2026-04-26T15:55:00', 'TimeslotAccepted': ...
+
     """
 
     USER_AGENT: str = "python/auroraplus"
@@ -90,6 +96,8 @@ class AuroraPlusApi:
     month: dict[str, Any] | None = None
     quarter: dict[str, Any] | None = None
     year: dict[str, Any] | None = None
+
+    powerhour: list[dict] | None = None
 
     DollarValueUsage: float | None = None
     KilowattHourUsage: float | None = None
@@ -441,6 +449,9 @@ class AuroraPlusApi:
                 self.BillOverDueAmount = "{:.2f}".format(premise["BillOverDueAmount"])
         if found != "true":
             self.Error = "ServiceAgreementID not found"
+
+    def getpowerhour(self):
+        self.powerhour = self.request("/powerhour/upcoming-active")
 
     def request(self, url: str) -> dict[str, Any] | list | None:
         try:
