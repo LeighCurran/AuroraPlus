@@ -2,11 +2,11 @@
 
 import json
 
-import auroraplus
+from .api import AuroraPlusApi
 
 
 def get_token():
-    api = auroraplus.AuroraPlusApi()
+    api = AuroraPlusApi()
     url = api.oauth_authorize()
 
     print(
