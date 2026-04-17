@@ -358,32 +358,30 @@ class AuroraPlusApi:
 
     def get_info(self):
         """Get CustomerID and ServiceAgreementID"""
-        try:
-            r = self._fetch(self.API_URL + "/customers/current")
-            r.raise_for_status()
-            current: dict[str, Any] = r.json()[0]
-            self.customerId = current["CustomerID"]
+        data = self.request("/customers/current")
+        if not data:
+            return
+        current: dict[str, Any] = data[0]
+        self.customerId = current["CustomerID"]
 
-            """Loop through premises to get active """
-            premises: dict[str, Any] = current["Premises"]
-            for premise in premises:
-                if premise["ServiceAgreementStatus"] == "Active":
-                    self.Active = premise["ServiceAgreementStatus"]
-                    self.serviceAgreementID = premise["ServiceAgreementID"]
-                    self.premiseAddress = premise["Address"]
-            if self.Active != "Active":
-                self.Error = "No active premise found"
-        except Timeout:
-            self.Error = "Info request timed out"
+        """Loop through premises to get active """
+        premises: dict[str, Any] = current["Premises"]
+        for premise in premises:
+            if premise["ServiceAgreementStatus"] == "Active":
+                self.Active = premise["ServiceAgreementStatus"]
+                self.serviceAgreementID = premise["ServiceAgreementID"]
+                self.premiseAddress = premise["Address"]
+        if self.Active != "Active":
+            self.Error = "No active premise found"
 
-    def request(self, timespan: str, index: int = -1) -> dict[str, Any]:
+    def request_usage(self, period: str, index: int = -1) -> dict[str, Any] | None:
         if not hasattr(self, "serviceAgreementID") or not self.serviceAgreementID:
             self.get_info()
         try:
             resp = self._fetch(
                 self.API_URL
                 + "/usage/"
-                + timespan
+                + period
                 + "?serviceAgreementID="
                 + self.serviceAgreementID
                 + "&customerId="
@@ -394,67 +392,65 @@ class AuroraPlusApi:
             if resp.status_code == 200:
                 return resp.json()
             else:
-                self.Error = "Data request failed: " + resp.reason
+                self.Error = f"Usage data request for {period} failed: " + resp.reason
         except Timeout:
-            self.Error = "Data request timed out"
+            self.Error = f"Usage data request for {period} timed out"
 
     def getsummary(self, index: int = -1):
-        summarydata = self.request("day", index)
+        summarydata = self.request_usage("day", index)
         self.DollarValueUsage = summarydata["SummaryTotals"]["DollarValueUsage"]
         self.KilowattHourUsage = summarydata["SummaryTotals"]["KilowattHourUsage"]
 
     def getday(self, index: int = -1):
-        self.day = self.request("day", index)
+        self.day = self.request_usage("day", index)
 
     def getweek(self, index: int = -1):
-        self.week = self.request("week", index)
+        self.week = self.request_usage("week", index)
 
     def getmonth(self, index: int = -1):
-        self.month = self.request("month", index)
+        self.month = self.request_usage("month", index)
 
     def getquarter(self, index: int = -1):
-        self.quarter = self.request("quarter", index)
+        self.quarter = self.request_usage("quarter", index)
 
     def getyear(self, index: int = -1):
-        self.year = self.request("year", index)
+        self.year = self.request_usage("year", index)
 
     def getcurrent(self):
+        """Request current customer data"""
+        data = self.request("/customers/current")
+        if not data:
+            return
+
+        current: dict[str, Any] = data[0]
+
+        """Loop through premises to match serviceAgreementID already found in token request"""
+        premises: dict[str, Any] = current["Premises"]
+        found = ""
+        for premise in premises:
+            if premise["ServiceAgreementID"] == self.serviceAgreementID:
+                found = "true"
+                self.AmountOwed = "{:.2f}".format(premise["AmountOwed"])
+                self.EstimatedBalance = "{:.2f}".format(premise["EstimatedBalance"])
+                self.AverageDailyUsage = "{:.2f}".format(premise["AverageDailyUsage"])
+                self.UsageDaysRemaining = premise["UsageDaysRemaining"]
+                self.ActualBalance = "{:.2f}".format(premise["ActualBalance"])
+                self.UnbilledAmount = "{:.2f}".format(premise["UnbilledAmount"])
+                self.BillTotalAmount = "{:.2f}".format(premise["BillTotalAmount"])
+                self.NumberOfUnpaidBills = premise["NumberOfUnpaidBills"]
+                self.BillOverDueAmount = "{:.2f}".format(premise["BillOverDueAmount"])
+        if found != "true":
+            self.Error = "ServiceAgreementID not found"
+
+    def request(self, url: str) -> dict[str, Any] | list | None:
         try:
-            """Request current customer data"""
-            current = self._fetch(self.API_URL + "/customers/current")
-
-            if current.status_code == 200:
-                currentjson: dict[str, Any] = current.json()[0]
-
-                """Loop through premises to match serviceAgreementID already found in token request"""
-                premises: dict[str, Any] = currentjson["Premises"]
-                found = ""
-                for premise in premises:
-                    if premise["ServiceAgreementID"] == self.serviceAgreementID:
-                        found = "true"
-                        self.AmountOwed = "{:.2f}".format(premise["AmountOwed"])
-                        self.EstimatedBalance = "{:.2f}".format(
-                            premise["EstimatedBalance"]
-                        )
-                        self.AverageDailyUsage = "{:.2f}".format(
-                            premise["AverageDailyUsage"]
-                        )
-                        self.UsageDaysRemaining = premise["UsageDaysRemaining"]
-                        self.ActualBalance = "{:.2f}".format(premise["ActualBalance"])
-                        self.UnbilledAmount = "{:.2f}".format(premise["UnbilledAmount"])
-                        self.BillTotalAmount = "{:.2f}".format(
-                            premise["BillTotalAmount"]
-                        )
-                        self.NumberOfUnpaidBills = premise["NumberOfUnpaidBills"]
-                        self.BillOverDueAmount = "{:.2f}".format(
-                            premise["BillOverDueAmount"]
-                        )
-                if found != "true":
-                    self.Error = "ServiceAgreementID not found"
+            resp = self._fetch(self.API_URL + url)
+            if resp.status_code == 200:
+                return resp.json()
             else:
-                self.Error = "Current request failed: " + current.reason
+                self.Error = f"Data request for {url} failed: " + resp.reason
         except Timeout:
-            self.Error = "Current request timed out"
+            self.Error = f"Data request for {url} timed out"
 
     def _fetch(self, url: str) -> Response:
         if not self.token.get("access_token"):
