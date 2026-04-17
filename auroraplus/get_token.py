@@ -1,20 +1,21 @@
 #!/bin/env python
 
 import json
+from textwrap import dedent
 
-import auroraplus
+from .api import AuroraPlusApi
 
 
 def get_token():
-    api = auroraplus.AuroraPlusApi()
+    api = AuroraPlusApi()
     url = api.oauth_authorize()
 
     print(
-        "Please visit the following URL in a browser, "
-        "and follow the login prompts ...\n"
-        "\n"
-        "Make sure to check `Keep me logged in` "
-        "to obtain a long-lived refresh token.\n"
+        dedent("""
+        Please visit the following URL in a browser, and follow the login prompts ...
+
+        Make sure to check `Keep me logged in` to obtain a long-lived refresh token.
+        """)
     )
     print(url)
 
@@ -28,7 +29,7 @@ def get_token():
     print(json.dumps(token))
 
     print("\nThe access token (to use as a bearer token for one-off requests) is\n")
-    print(token["access_token"])
+    print(json.dumps(token["access_token"]))
 
     print()
 

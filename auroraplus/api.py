@@ -1,0 +1,593 @@
+"""Abstraction of the Aurora+ API"""
+
+import base64
+import hashlib
+import json
+import random
+import string
+from typing import Any, TypeAlias
+import uuid
+import logging
+from warnings import deprecated
+
+from requests import Response
+from requests.adapters import HTTPAdapter
+from requests.exceptions import HTTPError, Timeout
+from requests_oauthlib import OAuth2Session
+
+LOGGER = logging.getLogger(__name__)
+
+AuroraPlusToken: TypeAlias = dict[str, Any]
+
+
+class AuroraPlusAuthenticationError(Exception):
+    pass
+
+
+class AuroraPlusApi:
+    """
+    A client to interact with the Aurora+ API.
+
+    Obtaining a new OAuth token is done in two steps:
+
+        >>> import auroraplus
+        >>> api = auroraplus.AuroraPlusApi()
+        >>> api.oauth_authorize()
+        'https://customers.auroraenergy.com.au/...'
+
+    After following the prompts, the URL of the (error) page that's returned should be passed as the redirect URI.
+
+        >>> token = api.oauth_redirect('https://my.auroraenergy.com.au/login/redirect?state=...')
+
+    The `api` object is now authenticated.
+
+
+    Data can then be fetched with
+
+        >>> api.getcurrent()
+        >>> api.getday()
+        >>> api.getmonth()
+        >>> api.getquarter()
+        >>> api.getyear()
+
+    and inspected in, e.g.,
+
+        >>> api.day
+        {'StartDate': '2023-12-25T13:00:00Z', 'EndDate': '2023-12-26T13:00:00Z', 'TimeMeasureCount': 1, ...
+
+    Power Hour data can be obtained in a similar fashion
+
+        >>> api.getpowerhour()
+        >>> api.powerhour
+        [{'EventName': 'April Flash Event', 'PowerHourEventId': 92, 'StartDateTime': '2026-04-09T08:55:47', 'OfferExpiryDateTime': '2026-04-26T15:55:00', 'TimeslotAccepted': ...
+
+    """
+
+    USER_AGENT: str = "python/auroraplus"
+
+    OAUTH_BASE_URL: str = (
+        "https://customers.auroraenergy.com.au"
+        "/auroracustomers1p.onmicrosoft.com/b2c_1a_sign_in"
+    )
+    AUTHORIZE_URL: str = OAUTH_BASE_URL + "/oauth2/v2.0/authorize"
+    TOKEN_URL: str = OAUTH_BASE_URL + "/oauth2/v2.0/token"
+    CLIENT_ID: str = "2ff9da64-8629-4a92-a4b6-850a3f02053d"
+    REDIRECT_URI: str = "https://my.auroraenergy.com.au/login/redirect"
+
+    API_URL: str = "https://api.auroraenergy.com.au/api"
+    BEARER_TOKEN_URL: str = API_URL + "/identity/LoginToken"
+    BEARER_TOKEN_REFRESH_URL: str = API_URL + "/identity/refreshToken"
+    COOKIE_DOMAIN: str = "api.auroraenergy.com.au"
+
+    SCOPE: list[str] = ["openid", "profile", "offline_access"]
+
+    session: OAuth2Session
+    token: AuroraPlusToken
+
+    Error: str | None = None
+
+    Active: str = ""
+    customerId: str = ""
+    premiseAddress: str = ""
+    serviceAgreementID: str = ""
+
+    day: dict[str, Any] | None = None
+    week: dict[str, Any] | None = None
+    month: dict[str, Any] | None = None
+    quarter: dict[str, Any] | None = None
+    year: dict[str, Any] | None = None
+
+    powerhour: list[dict] | None = None
+
+    DollarValueUsage: float | None = None
+    KilowattHourUsage: float | None = None
+    AmountOwed: str = ""
+    EstimatedBalance: str = ""
+    AverageDailyUsage: str = ""
+    UsageDaysRemaining: str = ""
+    ActualBalance: str = ""
+    UnbilledAmount: str = ""
+    BillTotalAmount: str = ""
+    NumberOfUnpaidBills: str = ""
+    BillOverDueAmount: str = ""
+
+    _code_verifier: str = ""
+    _authorization_url: str = ""
+
+    def __init__(
+        self,
+        username: str | None = None,
+        password: str | None = None,
+        *,
+        token: AuroraPlusToken | None = None,
+        id_token: str | None = None,
+        access_token: str | None = None,
+    ):
+        """Initialise the API.
+
+        An authenticated object can be recreated from a preexisting OAuth `token` with
+
+            >>> api = auroraplus.api(token=token)
+
+        A bearer `access_token` can be provided for for one-off queries.
+
+            >>> api = auroraplus.api(access_token=token['access_token'])
+
+        For queries over a longer period of time (>24h), it is possible to pass
+        a recent `id_token`, and let the library handle refreshes.
+
+            >>> api = auroraplus.api(id_token=token['id_token'])
+
+        Backward-compatible ways exists to only pass the `access_token` or `id_token`,
+        as `password` and `username`, respectively>
+
+            >>> api = auroraplus.api(username=token['id_token'])
+            >>> api = auroraplus.api(password=token['access_token'])
+
+        Parameters:
+        -----------
+
+        username: str
+
+            Deprecated, kept for backward compatibility. If passed with an empty
+            `password` and no `token`, the `username` will be used as an `id_token`.
+
+        password: str
+
+            Deprecated, kept for backward compatibility. If passed with an empty
+            `username` and no `token`, the `password` will be used as a bearer
+            `access_token`.
+
+        token : AuroraPlusToken
+
+            A pre-established token. For one-off use, it should contain at least an
+            `access_token` and a `token_type`. For use over 24h, the `RefreshToken`,
+            cookie obtainable by presenting the `id_token` to the `LoginToken` endpoint, should be
+            present as `cookie_RefreshToken`. Any token obtain using the `oauth_*` methods
+            will contain the necessary information.
+
+        access_token : str
+
+            Used for short-lived (<24h) sessions.
+
+        id_token : str
+
+            Used to retrieve an `access_token` and an `cookie_RefreshToken` for
+            longer-lived sessions.
+
+        """
+        self.Error = None
+        backward_compat = False
+        if not token:
+            if password and not username:
+                # Backward compatibility: if no username and no token,
+                # assume the password is a bearer access token
+                LOGGER.warning(
+                    "received deprecated password only, assuming access_token..."
+                )
+                access_token = password
+                backward_compat = True
+            elif username and not password:
+                # Backward compatibility to pass a full token as the first, and only, argument.
+                LOGGER.warning(
+                    "received deprecated username only, assuming id_token..."
+                )
+                id_token = username
+
+        token = token or {}
+
+        if access_token:
+            token["access_token"] = access_token
+            token["token_type"] = "bearer"
+        if id_token:
+            token["id_token"] = id_token
+
+        self.token = token
+        api_adapter = HTTPAdapter(max_retries=2)
+
+        """Create a session and perform all requests in the same session"""
+        session = OAuth2Session(
+            self.CLIENT_ID,
+            redirect_uri=self.REDIRECT_URI,
+            scope=self.SCOPE,
+            token=token,
+        )
+        session.mount(self.API_URL, api_adapter)
+        session.headers.update(
+            {
+                "Accept": "application/json",
+                "User-Agent": self.USER_AGENT,
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+            }
+        )
+        self.session = session
+
+        self._update_tokens(token.get("access_token"), token.get("cookie_RefreshToken"))
+
+        if backward_compat and self.token:
+            self.get_info()
+
+    def oauth_authorize(self) -> str:
+        """
+        Start an OAuth Web Application authentication with Aurora Plus
+
+        Returns:
+        --------
+
+        str: the URL to query interactively to authorize this session
+
+        """
+        state = {
+            "id": str(uuid.uuid4()),
+            "meta": {"interactionType": "redirect"},
+        }
+
+        self._code_verifier = "".join(
+            [
+                random.choice(string.ascii_letters + string.digits + "-_")
+                for _ in range(43)
+            ]
+        )
+        code_challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(self._code_verifier.encode()).digest()
+        ).strip(b"=")
+
+        self._authorization_url, _ = self.session.authorization_url(
+            self.AUTHORIZE_URL,
+            client_request_id=uuid.uuid4(),
+            client_info=1,
+            code_challenge=code_challenge,
+            code_challenge_method="S256",
+            state=base64.encodebytes(json.dumps(state).encode()),
+        )
+
+        return self._authorization_url
+
+    def oauth_redirect(self, authorization_response: str):
+        """
+        Continue an OAuth Web Application authentication with Aurora Plus.
+
+        Needs to be called after oauth_authorize.
+
+        Parameters:
+        -----------
+
+        authorization_response: str
+
+            The full URI of the response (error) page after authentication.
+
+        Returns:
+        --------
+
+        dict: full token information
+
+        """
+        if not self.session.compliance_hook["access_token_response"]:
+            self.session.register_compliance_hook(
+                "access_token_response", self._include_access_token
+            )
+
+        return self.session.fetch_token(
+            self.TOKEN_URL,
+            authorization_response=authorization_response,
+            code_verifier=self._code_verifier,
+        )
+
+    def oauth_dump(self) -> dict[str, str]:
+        """
+        Export partial OAuth state, for use in asynchronous or request/response-based
+        workflows.
+
+        Returns:
+        --------
+
+        dict: a dict of all the relevant state
+        """
+        return {
+            "authorization_url": self._authorization_url,
+            "code_verifier": self._code_verifier,
+        }
+
+    def oauth_load(
+        self,
+        authorization_url: str,
+        code_verifier: str,
+    ):
+        """
+        Import partial OAuth state.
+
+        Params:
+        -------
+
+        kwargs: pass the state dict returned from oauth_dump.
+        """
+        self._authorization_url = authorization_url
+        self._code_verifier = code_verifier
+
+    def _include_access_token(self, r: Response) -> Response:
+        """
+        OAuth compliance hook to fetch the bespoke LoginToken,
+        and present it as a standard access_token, as well as the value of the
+        RefreshToken cookie, for later requests to BEARER_TOKEN_REFRESH_URL.
+
+        Returns:
+        --------
+
+        Response: the original respones, with the full token, and additional
+        cookie_RefreshToken attribute, if available..
+
+        Response
+        """
+        rjs: dict[str, Any] = r.json()
+        id_token: str | None = rjs.get("id_token")
+
+        access_token, refresh_token_cookie = self._get_access_token(id_token)
+
+        rjs.update(
+            {
+                "access_token": access_token,
+                "cookie_RefreshToken": refresh_token_cookie,
+                "scope": "openid profile offline_access",
+            }
+        )
+
+        r._content = json.dumps(rjs).encode()
+
+        return r
+
+    def gettoken(self, *args, **kwargs):
+        """
+        Deprecated, kept for backward compatibility
+
+        args and kwargs are to catch obsolete arguments.
+        """
+        self.get_info()
+
+    def get_info(self):
+        """Get CustomerID and ServiceAgreementID"""
+        data = self.request("/customers/current")
+        if not data:
+            return
+        current: dict[str, Any] = data[0]
+        self.customerId = current["CustomerID"]
+
+        """Loop through premises to get active """
+        premises: dict[str, Any] = current["Premises"]
+        for premise in premises:
+            if premise["ServiceAgreementStatus"] == "Active":
+                self.Active = premise["ServiceAgreementStatus"]
+                self.serviceAgreementID = premise["ServiceAgreementID"]
+                self.premiseAddress = premise["Address"]
+        if self.Active != "Active":
+            self.Error = "No active premise found"
+
+    def request_usage(self, period: str, index: int = -1) -> dict[str, Any] | None:
+        if not hasattr(self, "serviceAgreementID") or not self.serviceAgreementID:
+            self.get_info()
+        try:
+            resp = self._fetch(
+                self.API_URL
+                + "/usage/"
+                + period
+                + "?serviceAgreementID="
+                + self.serviceAgreementID
+                + "&customerId="
+                + self.customerId
+                + "&index="
+                + str(index)
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                self.Error = f"Usage data request for {period} failed: " + resp.reason
+        except Timeout:
+            self.Error = f"Usage data request for {period} timed out"
+
+    def getsummary(self, index: int = -1):
+        summarydata = self.request_usage("day", index)
+        self.DollarValueUsage = summarydata["SummaryTotals"]["DollarValueUsage"]
+        self.KilowattHourUsage = summarydata["SummaryTotals"]["KilowattHourUsage"]
+
+    def getday(self, index: int = -1):
+        self.day = self.request_usage("day", index)
+
+    def getweek(self, index: int = -1):
+        self.week = self.request_usage("week", index)
+
+    def getmonth(self, index: int = -1):
+        self.month = self.request_usage("month", index)
+
+    def getquarter(self, index: int = -1):
+        self.quarter = self.request_usage("quarter", index)
+
+    def getyear(self, index: int = -1):
+        self.year = self.request_usage("year", index)
+
+    def getcurrent(self):
+        """Request current customer data"""
+        data = self.request("/customers/current")
+        if not data:
+            return
+
+        current: dict[str, Any] = data[0]
+
+        """Loop through premises to match serviceAgreementID already found in token request"""
+        premises: dict[str, Any] = current["Premises"]
+        found = ""
+        for premise in premises:
+            if premise["ServiceAgreementID"] == self.serviceAgreementID:
+                found = "true"
+                self.AmountOwed = "{:.2f}".format(premise["AmountOwed"])
+                self.EstimatedBalance = "{:.2f}".format(premise["EstimatedBalance"])
+                self.AverageDailyUsage = "{:.2f}".format(premise["AverageDailyUsage"])
+                self.UsageDaysRemaining = premise["UsageDaysRemaining"]
+                self.ActualBalance = "{:.2f}".format(premise["ActualBalance"])
+                self.UnbilledAmount = "{:.2f}".format(premise["UnbilledAmount"])
+                self.BillTotalAmount = "{:.2f}".format(premise["BillTotalAmount"])
+                self.NumberOfUnpaidBills = premise["NumberOfUnpaidBills"]
+                self.BillOverDueAmount = "{:.2f}".format(premise["BillOverDueAmount"])
+        if found != "true":
+            self.Error = "ServiceAgreementID not found"
+
+    def getpowerhour(self):
+        self.powerhour = self.request("/powerhour/upcoming-active")
+
+    def request(self, url: str) -> dict[str, Any] | list | None:
+        try:
+            resp = self._fetch(self.API_URL + url)
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                self.Error = f"Data request for {url} failed: " + resp.reason
+        except Timeout:
+            self.Error = f"Data request for {url} timed out"
+
+    def _fetch(self, url: str) -> Response:
+        if not self.token.get("access_token"):
+            LOGGER.debug("access_token missing, obtaining...")
+
+            if id_token := self.token.get("id_token"):
+                try:
+                    access_token, refresh_token_cookie = self._get_access_token(
+                        id_token
+                    )
+                except (HTTPError, AuroraPlusAuthenticationError) as exc:
+                    # We'll continue, fail, and hopefully get a chance to use the
+                    # RefreshToken cookie.
+                    LOGGER.warning(f"can't obtain access_token: {exc}")
+                    pass
+                else:
+                    self._update_tokens(access_token, refresh_token_cookie)
+
+        r = self.session.get(url)
+
+        if r.status_code in [401, 403]:
+            LOGGER.info("access_token refused, refreshing...")
+
+            if not (refresh_token := self.token.get("cookie_RefreshToken")):
+                raise AuroraPlusAuthenticationError(
+                    "can't refresh access_token: RefreshToken cookie unknown"
+                )
+
+            try:
+                access_token, refresh_token_cookie = self._refresh_access_token(
+                    refresh_token
+                )
+            except (HTTPError, AuroraPlusAuthenticationError) as exc:
+                # We'll continue, fail, and hopefully get a chance to use the
+                # RefreshToken cookie.
+                LOGGER.warning(f"can't obtain RefreshToken cookie: {exc}")
+                pass
+            else:
+                self._update_tokens(access_token, refresh_token_cookie)
+
+            r = self.session.get(url)
+
+        r.raise_for_status()
+
+        return r
+
+    def _get_access_token(self, id_token: str) -> tuple[str, str | None]:
+        LOGGER.debug(f"retrieving access_token with {id_token=}...")
+
+        # Incorrect, but looks the part for validation.
+        self.session.token["access_token"] = id_token
+
+        atr = self.session.post(
+            self.BEARER_TOKEN_URL, json={"remember": "True", "token": id_token}
+        )
+        atr.raise_for_status()
+
+        return self._extract_access_refresh_token(atr)
+
+    def _refresh_access_token(self, refresh_token: str) -> tuple[str, str | None]:
+        LOGGER.debug(f"refreshing access_token with cookie {refresh_token=}...")
+
+        rtr = self.session.post(self.BEARER_TOKEN_REFRESH_URL, json={})
+        rtr.raise_for_status()
+
+        return self._extract_access_refresh_token(rtr)
+
+    def _extract_access_refresh_token(
+        self, response: Response
+    ) -> tuple[str, str | None]:
+        refresh_token_cookie = response.cookies.get("RefreshToken")
+        if not refresh_token_cookie:
+            LOGGER.warning(
+                f"Missing RefreshToken cookie in {self.BEARER_TOKEN_URL} response; did you check `Keep me logged in` on the aurora+ login page?"
+            )
+
+        access_token: str = response.json().get("accessToken").split()[1]
+        if not access_token:
+            raise AuroraPlusAuthenticationError(
+                f"Missing access_token in {self.BEARER_TOKEN_URL} response"
+            )
+
+        return access_token, refresh_token_cookie
+
+    def _update_tokens(
+        self, access_token: str | None, refresh_token_cookie: str | None
+    ):
+        if not access_token and not refresh_token_cookie:
+            LOGGER.warning(
+                "neither access_token nor RefreshToken cookie known; "
+                + "skipping session tokens update"
+            )
+            return
+
+        new_token = {}
+        if access_token:
+            LOGGER.debug(f"updating token in session: {access_token=}")
+            self.session.access_token = access_token
+            new_token.update(
+                {
+                    "access_token": access_token,
+                    "token_type": "bearer",
+                }
+            )
+        if refresh_token_cookie:
+            LOGGER.debug(f"updating RefreshToken in session: {refresh_token_cookie=}")
+            self.session.cookies.set(
+                "RefreshToken", refresh_token_cookie, domain=self.COOKIE_DOMAIN
+            )
+            new_token.update(
+                {
+                    "cookie_RefreshToken": refresh_token_cookie,
+                }
+            )
+        self.token.update(new_token)
+        self.session.token = self.token
+
+
+@deprecated(
+    "Use of auroraplus.api is deprecated, please use auroraplus.AuroraPlusApi instead"
+)
+class api(AuroraPlusApi):
+    """Backward compatibility adapter."""
+
+    def __init__(self, *args, **kwargs):
+        LOGGER.warning(
+            "Use of auroraplus.api is deprecated, please use auroraplus.AuroraPlusApi instead"
+        )
+        super().__init__(*args, **kwargs)

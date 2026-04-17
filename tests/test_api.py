@@ -55,3 +55,25 @@ def test_getweek(api: AuroraPlusApi, mock_api_request: requests_mock.Mocker):
     assert "T93PEAK" in api.week["TariffTypes"]
     assert "T93OFFPEAK" in api.week["TariffTypes"]
     assert "T140" in api.week["TariffTypes"]
+
+
+def test_getpowerhour(api: AuroraPlusApi, mock_api_request: requests_mock.Mocker):
+    with mock_api_request:
+        api.get_info()
+        api.getpowerhour()
+
+    assert api.powerhour
+    assert len(api.powerhour) == 1
+
+    event = api.powerhour[0]
+
+    assert event["EventName"] == "Merry and Bright with Free Light "
+    assert event["PowerHourEventId"] == 66
+    for key in [
+        "StartDateTime",
+        "OfferExpiryDateTime",
+        "TimeslotAccepted",
+        "TimeslotAll",
+        "Customer",
+    ]:
+        assert key in event

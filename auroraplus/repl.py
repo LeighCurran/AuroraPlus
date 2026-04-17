@@ -6,8 +6,9 @@ import logging
 import os
 import sys
 
-import auroraplus
-from auroraplus.get_token import get_token
+from .api import AuroraPlusApi
+
+from .get_token import get_token
 
 log_level = logging.DEBUG
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ def repl():
         token = get_token()
 
     try:
-        api = auroraplus.AuroraPlusApi(token=token)
+        api = AuroraPlusApi(token=token)
         api.get_info()
     except Exception as exc:
         logger.exception("exception when setting up", exc_info=exc)
