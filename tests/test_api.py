@@ -55,3 +55,50 @@ def test_getweek(api: AuroraPlusApi, mock_api_request: requests_mock.Mocker):
     assert "T93PEAK" in api.week["TariffTypes"]
     assert "T93OFFPEAK" in api.week["TariffTypes"]
     assert "T140" in api.week["TariffTypes"]
+
+
+def test_getpowerhours(api: AuroraPlusApi, mock_api_request: requests_mock.Mocker):
+    with mock_api_request:
+        api.get_info()
+        powerhours = api.getpowerhours()
+
+    assert powerhours == api.powerhours
+    assert len(powerhours) == 1
+
+    event = powerhours[0]
+    assert event["EventName"] == "Power Hours - Test Event"
+    assert "OfferExpiryDateTime" in event
+    assert event["TimeslotAccepted"]["StartDateTime"] == "2026-08-07T14:00:00"
+    assert event["TimeslotAccepted"]["EndDateTime"] == "2026-08-07T16:00:00"
+
+    for slot in event["TimeslotAll"]:
+        assert "PowerHourTimeSlotId" in slot
+        assert "StartDateTime" in slot
+        assert "EndDateTime" in slot
+        assert "ExpiryDateTime" in slot
+
+
+def test_getpowerhours_all(api: AuroraPlusApi, mock_api_request: requests_mock.Mocker):
+    with mock_api_request:
+        api.get_info()
+        powerhours = api.getpowerhours(upcoming_only=False)
+
+    assert len(powerhours) == 1
+    assert powerhours[0]["EventName"] == "Power Hours - Test Event"
+
+
+def test_getpowerhours_no_events(
+    api: AuroraPlusApi, mock_api_request: requests_mock.Mocker
+):
+    with mock_api_request:
+        api.get_info()
+
+        mock_api_request.get(
+            AuroraPlusApi.API_URL + "/powerhour/upcoming-active",
+            status_code=404,
+            text='{"Message": "No events"}',
+        )
+        powerhours = api.getpowerhours()
+
+    assert powerhours == []
+    assert api.powerhours == []

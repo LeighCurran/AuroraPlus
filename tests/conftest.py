@@ -785,6 +785,44 @@ def usage_week_response() -> str:
 
 
 @pytest.fixture
+def powerhours_response() -> str:
+    return dedent("""
+        [
+            {
+                "EventName": "Power Hours - Test Event",
+                "PowerHourEventId": 1,
+                "StartDateTime": "2026-07-21T15:06:55",
+                "OfferExpiryDateTime": "2026-08-09T13:55:00",
+                "TimeslotAccepted": {
+                    "PowerHourTimeSlotId": 12,
+                    "StartDateTime": "2026-08-07T14:00:00",
+                    "EndDateTime": "2026-08-07T16:00:00",
+                    "ExpiryDateTime": "2026-08-07T13:55:00"
+                },
+                "TimeslotAll": [
+                    {
+                        "PowerHourTimeSlotId": 11,
+                        "StartDateTime": "2026-08-07T12:00:00",
+                        "EndDateTime": "2026-08-07T14:00:00",
+                        "ExpiryDateTime": "2026-08-07T11:55:00"
+                    },
+                    {
+                        "PowerHourTimeSlotId": 12,
+                        "StartDateTime": "2026-08-07T14:00:00",
+                        "EndDateTime": "2026-08-07T16:00:00",
+                        "ExpiryDateTime": "2026-08-07T13:55:00"
+                    }
+                ],
+                "Customer": {
+                    "AccountId": "100100010",
+                    "Nmi": "8000000100"
+                }
+            }
+        ]
+    """)
+
+
+@pytest.fixture
 def mock_oauth_request(
     LoginToken_callback: Callable,
 ):
@@ -817,6 +855,7 @@ def mock_api_request(
     premises_response: str,
     usage_day_response: str,
     usage_week_response: str,
+    powerhours_response: str,
     LoginToken_response: str,
     RefreshToken_response: str,
     LoginToken_callback: Callable,
@@ -875,6 +914,15 @@ def mock_api_request(
             f"usage/week?serviceAgreementID={SERVICE_AGREEMENT_ID}&customerId={CUSTOMER_ID}&index=-1"
         ),
         text=_require_auth(usage_week_response),
+    )
+
+    m.get(
+        _aurora_url("powerhour/upcoming-active"),
+        text=_require_auth(powerhours_response),
+    )
+    m.get(
+        _aurora_url("powerhour/all"),
+        text=_require_auth(powerhours_response),
     )
 
     return m

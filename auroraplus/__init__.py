@@ -428,6 +428,31 @@ class AuroraPlusApi:
     def getyear(self, index: int = -1):
         self.year = self.request("year", index)
 
+    def getpowerhours(self, upcoming_only: bool = True) -> list[dict[str, Any]]:
+        """Fetch Power Hours events (free-electricity windows).
+
+        Power Hours are opt-in free-energy windows offered per event through
+        aurora+. Each event carries an ``OfferExpiryDateTime``, the offered
+        slots in ``TimeslotAll`` and, once one is locked in,
+        ``TimeslotAccepted``. All datetimes are naive local (Tasmania) times.
+
+        With ``upcoming_only`` (the default), only current/upcoming events are
+        returned (``/powerhour/upcoming-active``); pass ``False`` for the full
+        event history (``/powerhour/all``). The account is inferred from the
+        bearer token, and a 404 (no events on offer) is normalised to an
+        empty list.
+        """
+        path = "powerhour/upcoming-active" if upcoming_only else "powerhour/all"
+        try:
+            r = self._fetch(self.API_URL + "/" + path)
+        except HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                self.powerhours = []
+                return self.powerhours
+            raise
+        self.powerhours = r.json()
+        return self.powerhours
+
     def getcurrent(self):
         try:
             """Request current customer data"""
