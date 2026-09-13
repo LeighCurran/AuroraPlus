@@ -1,4 +1,4 @@
-from .api import AuroraPlusApi, AuroraPlusToken, AuroraPlusAuthenticationError, api
+from .api import AuroraPlusApi, AuroraPlusAuthenticationError, AuroraPlusToken, api
 from .get_token import get_token
 from .repl import repl
 

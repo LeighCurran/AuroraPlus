@@ -7,7 +7,6 @@ import os
 import sys
 
 from .api import AuroraPlusApi
-
 from .get_token import get_token
 
 log_level = logging.DEBUG

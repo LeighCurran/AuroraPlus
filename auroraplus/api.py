@@ -1,13 +1,15 @@
 """Abstraction of the Aurora+ API"""
 
+from __future__ import annotations
+
 import base64
 import hashlib
 import json
+import logging
 import random
 import string
-from typing import Any, TypeAlias
 import uuid
-import logging
+from typing import Any, ClassVar, TypeAlias
 from warnings import deprecated
 
 from requests import Response
@@ -73,7 +75,7 @@ class AuroraPlusApi:
     BEARER_TOKEN_REFRESH_URL: str = API_URL + "/identity/refreshToken"
     COOKIE_DOMAIN: str = "api.auroraenergy.com.au"
 
-    SCOPE: list[str] = ["openid", "profile", "offline_access"]
+    SCOPE: ClassVar[list[str]] = ["openid", "profile", "offline_access"]
 
     session: OAuth2Session
     token: AuroraPlusToken
@@ -465,7 +467,6 @@ class AuroraPlusApi:
                     # We'll continue, fail, and hopefully get a chance to use the
                     # RefreshToken cookie.
                     LOGGER.warning(f"can't obtain access_token: {exc}")
-                    pass
                 else:
                     self._update_tokens(access_token, refresh_token_cookie)
 
@@ -487,7 +488,6 @@ class AuroraPlusApi:
                 # We'll continue, fail, and hopefully get a chance to use the
                 # RefreshToken cookie.
                 LOGGER.warning(f"can't obtain RefreshToken cookie: {exc}")
-                pass
             else:
                 self._update_tokens(access_token, refresh_token_cookie)
 

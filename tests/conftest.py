@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from textwrap import dedent
 from typing import Callable
+
 import pytest
-from requests import Request
 import requests_mock
+from requests import Request
 
 from auroraplus import AuroraPlusApi
 from tests.consts import CUSTOMER_ID, SERVICE_AGREEMENT_ID

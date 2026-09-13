@@ -1,5 +1,6 @@
+from urllib.parse import parse_qs, urlparse
+
 import requests_mock
-from urllib.parse import urlparse, parse_qs
 
 from auroraplus import AuroraPlusApi
 
