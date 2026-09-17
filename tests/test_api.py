@@ -1,3 +1,5 @@
+import datetime
+
 import requests_mock
 
 from auroraplus import AuroraPlusApi
@@ -27,6 +29,12 @@ def test_getcurrent(api: AuroraPlusApi, mock_api_request: requests_mock.Mocker):
     assert api.NumberOfUnpaidBills == 0
     assert api.UnbilledAmount == "-73.71"
     assert api.UsageDaysRemaining == 0
+
+    assert api.CurrentTimeOfUse == "Peak - Residential Time of Use - Tariff 93"
+    assert api.CurrentTimeOfUsePeriodEndDate == datetime.datetime(
+        2025, 12, 26, 11, 0, 1, tzinfo=datetime.timezone.utc
+    )
+    assert api.CurrentTimeOfUseType == "PEAK"
 
 
 def test_getday(api: AuroraPlusApi, mock_api_request: requests_mock.Mocker):
