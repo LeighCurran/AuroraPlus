@@ -9,6 +9,7 @@ import logging
 import random
 import string
 import uuid
+from datetime import datetime
 from typing import Any, ClassVar, TypeAlias
 from warnings import deprecated
 
@@ -112,6 +113,10 @@ class AuroraPlusApi:
     BillTotalAmount: str = ""
     NumberOfUnpaidBills: str = ""
     BillOverDueAmount: str = ""
+
+    CurrentTimeOfUse: str | None = None
+    CurrentTimeOfUsePeriodEndDate: datetime | None = None
+    CurrentTimeOfUseType: str | None = None
 
     _code_verifier: str = ""
     _authorization_url: str = ""
@@ -449,6 +454,16 @@ class AuroraPlusApi:
                 self.BillTotalAmount = "{:.2f}".format(premise["BillTotalAmount"])
                 self.NumberOfUnpaidBills = premise["NumberOfUnpaidBills"]
                 self.BillOverDueAmount = "{:.2f}".format(premise["BillOverDueAmount"])
+
+                try:
+                    self.CurrentTimeOfUse = premise["CurrentTimeOfUse"]
+                    self.CurrentTimeOfUsePeriodEndDate = datetime.fromisoformat(
+                        premise["CurrentTimeOfUsePeriodEndDate"]
+                    )
+                    self.CurrentTimeOfUseType = premise["CurrentTimeOfUseType"]
+                except (KeyError, ValueError):
+                    pass
+
         if found != "true":
             self.Error = "ServiceAgreementID not found"
 
