@@ -457,9 +457,9 @@ class AuroraPlusApi:
 
                 try:
                     self.CurrentTimeOfUse = premise["CurrentTimeOfUse"]
-                    self.CurrentTimeOfUsePeriodEndDate = datetime.fromisoformat(
-                        premise["CurrentTimeOfUsePeriodEndDate"]
-                    )
+                    self.CurrentTimeOfUsePeriodEndDate = premise[
+                        "CurrentTimeOfUsePeriodEndDate"
+                    ]
                     self.CurrentTimeOfUseType = premise["CurrentTimeOfUseType"]
                 except (KeyError, ValueError):
                     pass
