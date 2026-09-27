@@ -10,7 +10,7 @@ AuroraPlus is a package to pull data from https://api.auroraenergy.com.au/api. T
 
 ### Obtain a token
 
-The easieast way to obtain a new token is to use the `auroraplus_get_token`
+The easiest way to obtain a new token is to use the `auroraplus_get_token`
 script.
 
 To do this more programmatically, obtaining a token is an interactive process
