@@ -62,9 +62,9 @@ getcurrent() gets the following data:
     NumberOfUnpaidBills
     BillOverDueAmount
     
-    Note: All data except EstimatedBalance is updated Daily.
+Note: All data except EstimatedBalance is updated Daily.
 
-    If relevant, time-of-use tariffs can be found in the following attributes:
+If relevant, time-of-use tariffs can be found in the following attributes:
 
     CurrentTimeOfUse
     CurrentTimeOfUsePeriodEndDate
